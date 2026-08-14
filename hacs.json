@@ -1,0 +1,6 @@
+{
+  "name": "RSS Paper",
+  "type": "plugin",
+  "filename": "rss-news-paper.js",
+  "render_readme": true
+}
