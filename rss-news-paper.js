@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.8.1 · build 2026-08-15-07';
+const CARD_VERSION = 'v1.9.0 · build 2026-08-15-08';
 
 // ─── Localizations ────────────────────────────────────────────────────────────
 const RSS_LOCALES = {
@@ -32,8 +32,6 @@ const RSS_LOCALES = {
       add_source:        '+ Add source',
       max_articles:      'Max articles',
       card_height:       'Card height (px)',
-      img_width:         'Image width (px)',
-      img_height:        'Image height (px)',
       show_source:       'Show category',
       show_date:         'Show date',
       show_desc:         'Show description',
@@ -64,8 +62,6 @@ const RSS_LOCALES = {
       add_source:          '+ Forrás hozzáadása',
       max_articles:        'Max cikkek száma',
       card_height:         'Kártya magassága (px)',
-      img_width:           'Kép szélessége (px)',
-      img_height:          'Kép magassága (px)',
       show_source:         'Kategória látható',
       show_date:           'Dátum látható',
       show_desc:           'Leírás látható',
@@ -96,8 +92,6 @@ const RSS_LOCALES = {
       add_source:          '+ Quelle hinzufügen',
       max_articles:        'Max. Artikel',
       card_height:         'Kartenhöhe (px)',
-      img_width:           'Bildbreite (px)',
-      img_height:          'Bildhöhe (px)',
       show_source:         'Kategorie anzeigen',
       show_date:           'Datum anzeigen',
       show_desc:           'Beschreibung anzeigen',
@@ -155,8 +149,6 @@ class RssNewsCard extends HTMLElement {
       show_source: true,
       show_date: true,
       show_original: true,
-      image_width: 100,
-      image_height: 360,
       title_font_size: 15,
       desc_font_size: 14,
       card_title_color: '',
@@ -178,8 +170,6 @@ class RssNewsCard extends HTMLElement {
       show_source:      config.show_source !== false,
       show_date:        config.show_date !== false,
       show_original:    config.show_original !== false,
-      image_width:      config.image_width || 100,
-      image_height:     config.image_height || 360,
       title_font_size:  config.title_font_size || 15,
       desc_font_size:   config.desc_font_size || 14,
       card_title_color: config.card_title_color || '',
@@ -366,7 +356,7 @@ class RssNewsCard extends HTMLElement {
   }
 
   _buildArticlesHtml(articles) {
-    const { show_source, show_date, show_description, show_original, image_width, image_height, title_font_size, desc_font_size, article_title_color, desc_color } = this._config;
+    const { show_source, show_date, show_description, show_original, title_font_size, desc_font_size, article_title_color, desc_color } = this._config;
     const t = this._t();
     if (articles.length === 0) return `<div style="padding:20px;color:var(--secondary-text-color);text-align:center;">${t.no_articles}</div>`;
     return articles.map(a => {
@@ -385,7 +375,7 @@ class RssNewsCard extends HTMLElement {
       return `
       <div class="rss-article-row" data-rss-url="${a.link}"
         style="display:flex;flex-direction:column;gap:8px;padding:12px 0;border-bottom:1px solid var(--divider-color);cursor:pointer;-webkit-tap-highlight-color:transparent;">
-        ${imgSrc ? `<img src="${imgSrc}" style="width:100%;height:${image_height}px;object-fit:cover;border-radius:8px;display:block;" onerror="this.style.display='none'"/>` : ''}
+        ${imgSrc ? `<img src="${imgSrc}" style="width:100%;height:auto;display:block;border-radius:8px;" onerror="this.style.display='none'"/>` : ''}
         <div style="flex:1;min-width:0;text-align:left;">
           <div class="rss-atitle" style="font-size:${title_font_size}px;font-weight:600;line-height:1.4;color:${mainTitleColor};white-space:normal;word-break:break-word;margin-bottom:4px;">${titleMain}${publication ? ` <span style="font-style:italic;font-weight:400;opacity:0.75;color:${publicationColor};">– ${publication}</span>` : ''}</div>
           ${show_original && a.title_original ? `<div style="font-size:${Math.max(10, title_font_size - 2)}px;font-style:italic;opacity:0.65;color:${desc_color || 'var(--secondary-text-color)'};line-height:1.3;white-space:normal;word-break:break-word;margin-bottom:4px;">${a.title_original}</div>` : ''}
@@ -558,12 +548,6 @@ class RssNewsCardEditor extends HTMLElement {
         <label>${t.ed.card_height}</label>
         <input type="number" id="ed-height" min="100" max="2000" value="${c.card_height || 400}"/>
 
-        <label>${t.ed.img_width}</label>
-        <input type="number" id="ed-imgw" min="50" max="300" value="${c.image_width || 100}"/>
-
-        <label>${t.ed.img_height}</label>
-        <input type="number" id="ed-imgh" min="50" max="600" value="${c.image_height || 360}"/>
-
         <label>${t.ed.title_size}</label>
         <input type="number" id="ed-titlesize" min="10" max="30" value="${c.title_font_size || 15}"/>
 
@@ -723,8 +707,6 @@ class RssNewsCardEditor extends HTMLElement {
     bind('#ed-title',    'title');
     bind('#ed-max',      'max_articles',    v => parseInt(v) || 10);
     bind('#ed-height',   'card_height',     v => parseInt(v) || 400);
-    bind('#ed-imgw',     'image_width',     v => parseInt(v) || 100);
-    bind('#ed-imgh',     'image_height',    v => parseInt(v) || 360);
     bind('#ed-titlesize','title_font_size', v => parseInt(v) || 15);
     bind('#ed-descsize', 'desc_font_size',  v => parseInt(v) || 14);
     bind('#ed-card-title-color-text',    'card_title_color');
@@ -780,8 +762,6 @@ class RssNewsCardEditor extends HTMLElement {
     set('#ed-title',     c.title);
     set('#ed-max',       c.max_articles);
     set('#ed-height',    c.card_height);
-    set('#ed-imgw',      c.image_width);
-    set('#ed-imgh',      c.image_height);
     set('#ed-titlesize', c.title_font_size);
     set('#ed-descsize',  c.desc_font_size);
     set('#ed-card-title-color-text',    c.card_title_color);
