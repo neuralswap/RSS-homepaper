@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.10.0 · build 2026-08-15-09';
+const CARD_VERSION = 'v1.10.1 · build 2026-08-15-10';
 
 // ─── Localizations ────────────────────────────────────────────────────────────
 const RSS_LOCALES = {
@@ -452,19 +452,19 @@ class RssNewsCard extends HTMLElement {
       <ha-card>
         <style>
           .rss-inner{padding:12px 16px;}
-          .rss-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap;}
-          .rss-header-left{display:flex;align-items:baseline;gap:8px;flex:1;min-width:0;}
-          .rss-title{font-size:24px;font-weight:400;margin-bottom:0;}
-          .rss-version{font-size:10px;color:var(--secondary-text-color);opacity:0.55;white-space:nowrap;flex-shrink:0;}
-          .rss-source-filter{flex-shrink:0;max-width:45%;padding:4px 8px;font-size:12px;border-radius:6px;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color);}
+          .rss-header{display:flex;flex-direction:column;gap:2px;margin-bottom:8px;}
+          .rss-header-top{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+          .rss-title{font-size:24px;font-weight:400;margin-bottom:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+          .rss-version{font-size:10px;color:var(--secondary-text-color);opacity:0.55;white-space:nowrap;align-self:flex-end;}
+          .rss-source-filter{flex-shrink:0;max-width:60%;padding:4px 8px;font-size:12px;border-radius:6px;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color);}
           .rss-scroll{overflow-y:scroll;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:thin;scrollbar-color:var(--divider-color) transparent;}
         </style>
         <div class="rss-inner">
           <div class="rss-header">
-            <div class="rss-header-left">
+            <div class="rss-header-top">
               <div class="rss-title-el"></div>
+              <select class="rss-source-filter"></select>
             </div>
-            <select class="rss-source-filter"></select>
             <div class="rss-version">${CARD_VERSION}</div>
           </div>
           <div class="rss-diag"></div>
@@ -487,12 +487,15 @@ class RssNewsCard extends HTMLElement {
     const filterEl = this.querySelector('.rss-source-filter');
     if (!filterEl) return;
     const t = this._t();
-    // Deduplicate source names while preserving configured order
+    // Build the option list from the *actual* RSS provider of each article
+    // (e.g. "bbc", "ansa"), not from the HA sensor/source names configured
+    // in the card – a single sensor can aggregate many different feeds.
     const names = [];
-    for (const s of (this._config.sources || [])) {
-      const name = s.name || s.entity;
+    for (const a of (this._articles || [])) {
+      const name = this._providerLabel(a);
       if (name && !names.includes(name)) names.push(name);
     }
+    names.sort((a, b) => a.localeCompare(b));
     const prevValue = filterEl.value || this._selectedSource;
     filterEl.innerHTML = [
       `<option value="all">${t.filter_all}</option>`,
@@ -524,7 +527,7 @@ class RssNewsCard extends HTMLElement {
     this._populateSourceFilter();
     const filteredArticles = this._selectedSource === 'all'
       ? articles
-      : articles.filter(a => a._sourceName === this._selectedSource);
+      : articles.filter(a => this._providerLabel(a) === this._selectedSource);
 
     const diagEl = this.querySelector('.rss-diag');
     const artEl = this.querySelector('.rss-articles');
