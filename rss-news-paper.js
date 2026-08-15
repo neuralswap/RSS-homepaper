@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.8.1 · build 2026-08-15-05';
+const CARD_VERSION = 'v1.8.1 · build 2026-08-15-06';
 
 // ─── Localizations ────────────────────────────────────────────────────────────
 const RSS_LOCALES = {
@@ -311,6 +311,21 @@ class RssNewsCard extends HTMLElement {
     return { main, publication };
   }
 
+  _cleanDescription(html) {
+    // Alcuni feed (es. Google News) inseriscono già tag HTML nella
+    // descrizione (link <a>, <font color="...">, ecc.). Se li lasciamo,
+    // quello stile "vince" sul colore impostato dalla card, ed è per questo
+    // che a volte la descrizione appare con un colore diverso dal solito.
+    // Qui rimuoviamo tutti i tag e teniamo solo il testo, così il colore
+    // configurato viene sempre applicato in modo coerente.
+    if (!html) return '';
+    return String(html)
+      .replace(/<[^>]*>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   _formatDate(pubDate) {
     try {
       const d = new Date(pubDate);
@@ -366,8 +381,8 @@ class RssNewsCard extends HTMLElement {
               ${(show_source && show_date) ? `<span style="opacity:0.4;">·</span>` : ''}
               ${show_date ? `<span>${this._formatDate(a.pubDate)}</span>` : ''}
             </div>` : ''}
-          ${show_description && a.description ? `<div style="font-size:${desc_font_size}px;color:${desc_color || 'var(--secondary-text-color)'};line-height:1.4;white-space:normal;word-break:break-word;">${a.description}</div>` : ''}
-          ${show_description && show_original && a.description_original ? `<div style="font-size:${Math.max(10, desc_font_size - 1)}px;font-style:italic;opacity:0.65;color:${desc_color || 'var(--secondary-text-color)'};line-height:1.4;white-space:normal;word-break:break-word;margin-top:2px;">${a.description_original}</div>` : ''}
+          ${show_description && a.description ? `<div style="font-size:${desc_font_size}px;color:${desc_color || 'var(--secondary-text-color)'};line-height:1.4;white-space:normal;word-break:break-word;">${this._cleanDescription(a.description)}</div>` : ''}
+          ${show_description && show_original && a.description_original ? `<div style="font-size:${Math.max(10, desc_font_size - 1)}px;font-style:italic;opacity:0.65;color:${desc_color || 'var(--secondary-text-color)'};line-height:1.4;white-space:normal;word-break:break-word;margin-top:2px;">${this._cleanDescription(a.description_original)}</div>` : ''}
         </div>
       </div>`;
     }).join('');
