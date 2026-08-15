@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.7.0 · build 2026-08-15-01';
+const CARD_VERSION = 'v1.8.0 · build 2026-08-15-02';
 
 // ─── Localizations ────────────────────────────────────────────────────────────
 const RSS_LOCALES = {
@@ -156,7 +156,7 @@ class RssNewsCard extends HTMLElement {
       show_date: true,
       show_original: true,
       image_width: 100,
-      image_height: 70,
+      image_height: 180,
       title_font_size: 15,
       desc_font_size: 14,
       card_title_color: '',
@@ -179,7 +179,7 @@ class RssNewsCard extends HTMLElement {
       show_date:        config.show_date !== false,
       show_original:    config.show_original !== false,
       image_width:      config.image_width || 100,
-      image_height:     config.image_height || 70,
+      image_height:     config.image_height || 180,
       title_font_size:  config.title_font_size || 15,
       desc_font_size:   config.desc_font_size || 14,
       card_title_color: config.card_title_color || '',
@@ -289,6 +289,14 @@ class RssNewsCard extends HTMLElement {
     return article._sourceName;
   }
 
+  _providerLabel(article) {
+    // Nome del provider RSS originale (es. "BBC News", "Google News", "ANSA"),
+    // preso dal tag <source> del feed se presente, altrimenti dal nome
+    // della sorgente configurata nella card.
+    if (article.source && String(article.source).trim() !== '') return String(article.source).trim();
+    return article._sourceName;
+  }
+
   _formatDate(pubDate) {
     try {
       const d = new Date(pubDate);
@@ -318,23 +326,31 @@ class RssNewsCard extends HTMLElement {
     const { show_source, show_date, show_description, show_original, image_width, image_height, title_font_size, desc_font_size, article_title_color, desc_color } = this._config;
     const t = this._t();
     if (articles.length === 0) return `<div style="padding:20px;color:var(--secondary-text-color);text-align:center;">${t.no_articles}</div>`;
-    return articles.map(a => `
+    return articles.map(a => {
+      const topic = this._topicLabel(a);
+      const provider = this._providerLabel(a);
+      // Evita di ripetere due volte la stessa etichetta se non c'è una vera
+      // categoria/topic e il fallback di _topicLabel coincide col provider.
+      const showBothLabels = topic && provider && topic.toLowerCase() !== String(provider).toLowerCase();
+      return `
       <div class="rss-article-row" data-rss-url="${a.link}"
-        style="display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--divider-color);cursor:pointer;-webkit-tap-highlight-color:transparent;">
-        ${a.image && a.image.trim() !== '' ? `<img src="${a.image}" style="width:${image_width}px;min-width:${image_width}px;height:${image_height}px;object-fit:cover;border-radius:6px;flex-shrink:0;" onerror="this.style.display='none'"/>` : ''}
+        style="display:flex;flex-direction:column;gap:8px;padding:12px 0;border-bottom:1px solid var(--divider-color);cursor:pointer;-webkit-tap-highlight-color:transparent;">
+        ${a.image && a.image.trim() !== '' ? `<img src="${a.image}" style="width:100%;height:${image_height}px;object-fit:cover;border-radius:8px;display:block;" onerror="this.style.display='none'"/>` : ''}
         <div style="flex:1;min-width:0;text-align:left;">
           <div class="rss-atitle" style="font-size:${title_font_size}px;font-weight:600;line-height:1.4;color:${this._isVisited(a.link) ? 'var(--disabled-text-color)' : (article_title_color || 'var(--primary-text-color)')};white-space:normal;word-break:break-word;margin-bottom:4px;">${a.title}</div>
           ${show_original && a.title_original ? `<div style="font-size:${Math.max(10, title_font_size - 2)}px;font-style:italic;opacity:0.65;color:${desc_color || 'var(--secondary-text-color)'};line-height:1.3;white-space:normal;word-break:break-word;margin-bottom:4px;">${a.title_original}</div>` : ''}
           ${(show_source || show_date) ? `
             <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:4px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-              ${show_source ? `<span style="font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:${a._sourceColor};">${this._topicLabel(a)}</span>` : ''}
+              ${show_source ? `<span style="font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:${a._sourceColor};">${topic}</span>` : ''}
+              ${show_source && showBothLabels ? `<span style="opacity:0.4;">·</span><span style="font-weight:600;">${provider}</span>` : ''}
               ${(show_source && show_date) ? `<span style="opacity:0.4;">·</span>` : ''}
               ${show_date ? `<span>${this._formatDate(a.pubDate)}</span>` : ''}
             </div>` : ''}
           ${show_description && a.description ? `<div style="font-size:${desc_font_size}px;color:${desc_color || 'var(--secondary-text-color)'};line-height:1.4;white-space:normal;word-break:break-word;">${a.description}</div>` : ''}
           ${show_description && show_original && a.description_original ? `<div style="font-size:${Math.max(10, desc_font_size - 1)}px;font-style:italic;opacity:0.65;color:${desc_color || 'var(--secondary-text-color)'};line-height:1.4;white-space:normal;word-break:break-word;margin-top:2px;">${a.description_original}</div>` : ''}
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }
 
   _handleLinkClick(url) {
@@ -491,7 +507,7 @@ class RssNewsCardEditor extends HTMLElement {
         <input type="number" id="ed-imgw" min="50" max="300" value="${c.image_width || 100}"/>
 
         <label>${t.ed.img_height}</label>
-        <input type="number" id="ed-imgh" min="50" max="300" value="${c.image_height || 70}"/>
+        <input type="number" id="ed-imgh" min="50" max="500" value="${c.image_height || 180}"/>
 
         <label>${t.ed.title_size}</label>
         <input type="number" id="ed-titlesize" min="10" max="30" value="${c.title_font_size || 15}"/>
