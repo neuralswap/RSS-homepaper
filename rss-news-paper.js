@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.8.1 · build 2026-08-15-06';
+const CARD_VERSION = 'v1.8.1 · build 2026-08-15-07';
 
 // ─── Localizations ────────────────────────────────────────────────────────────
 const RSS_LOCALES = {
@@ -289,6 +289,20 @@ class RssNewsCard extends HTMLElement {
     return article._sourceName;
   }
 
+  _resolveArticleImage(article) {
+    // Se l'articolo scelto come "principale" per un cluster di notizie non
+    // ha immagine (capita ad es. con Google News quando la fonte primaria
+    // cambia da un aggiornamento all'altro), cerchiamo la prima immagine
+    // valida tra le fonti correlate ("related") della stessa notizia.
+    if (article.image && String(article.image).trim() !== '') return String(article.image).trim();
+    if (Array.isArray(article.related)) {
+      for (const rel of article.related) {
+        if (rel && rel.image && String(rel.image).trim() !== '') return String(rel.image).trim();
+      }
+    }
+    return '';
+  }
+
   _providerLabel(article) {
     // Nome del provider RSS originale (es. "BBC News", "Google News", "ANSA"),
     // preso dal tag <source> del feed se presente, altrimenti dal nome
@@ -367,10 +381,11 @@ class RssNewsCard extends HTMLElement {
       const { main: titleMain, publication } = isAggregator ? this._splitAggregatorTitle(a) : { main: a.title, publication: null };
       const mainTitleColor = this._isVisited(a.link) ? 'var(--disabled-text-color)' : (article_title_color || 'var(--primary-text-color)');
       const publicationColor = desc_color || 'var(--secondary-text-color)';
+      const imgSrc = this._resolveArticleImage(a);
       return `
       <div class="rss-article-row" data-rss-url="${a.link}"
         style="display:flex;flex-direction:column;gap:8px;padding:12px 0;border-bottom:1px solid var(--divider-color);cursor:pointer;-webkit-tap-highlight-color:transparent;">
-        ${a.image && a.image.trim() !== '' ? `<img src="${a.image}" style="width:100%;height:${image_height}px;object-fit:cover;border-radius:8px;display:block;" onerror="this.style.display='none'"/>` : ''}
+        ${imgSrc ? `<img src="${imgSrc}" style="width:100%;height:${image_height}px;object-fit:cover;border-radius:8px;display:block;" onerror="this.style.display='none'"/>` : ''}
         <div style="flex:1;min-width:0;text-align:left;">
           <div class="rss-atitle" style="font-size:${title_font_size}px;font-weight:600;line-height:1.4;color:${mainTitleColor};white-space:normal;word-break:break-word;margin-bottom:4px;">${titleMain}${publication ? ` <span style="font-style:italic;font-weight:400;opacity:0.75;color:${publicationColor};">– ${publication}</span>` : ''}</div>
           ${show_original && a.title_original ? `<div style="font-size:${Math.max(10, title_font_size - 2)}px;font-style:italic;opacity:0.65;color:${desc_color || 'var(--secondary-text-color)'};line-height:1.3;white-space:normal;word-break:break-word;margin-bottom:4px;">${a.title_original}</div>` : ''}
