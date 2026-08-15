@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.8.1 · build 2026-08-15-03';
+const CARD_VERSION = 'v1.8.1 · build 2026-08-15-04';
 
 // ─── Localizations ────────────────────────────────────────────────────────────
 const RSS_LOCALES = {
@@ -377,11 +377,16 @@ class RssNewsCard extends HTMLElement {
       <ha-card>
         <style>
           .rss-inner{padding:12px 16px;}
-          .rss-title{font-size:24px;font-weight:400;margin-bottom:8px;}
+          .rss-header{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:8px;}
+          .rss-title{font-size:24px;font-weight:400;margin-bottom:0;}
+          .rss-version{font-size:10px;color:var(--secondary-text-color);opacity:0.55;white-space:nowrap;flex-shrink:0;}
           .rss-scroll{overflow-y:scroll;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:thin;scrollbar-color:var(--divider-color) transparent;}
         </style>
         <div class="rss-inner">
-          <div class="rss-title-el"></div>
+          <div class="rss-header">
+            <div class="rss-title-el"></div>
+            <div class="rss-version">${CARD_VERSION}</div>
+          </div>
           <div class="rss-diag"></div>
           <div class="rss-scroll"><div class="rss-articles"></div></div>
         </div>
