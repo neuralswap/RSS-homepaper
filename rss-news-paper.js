@@ -7,12 +7,13 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.9.0 · build 2026-08-15-08';
+const CARD_VERSION = 'v1.10.0 · build 2026-08-15-09';
 
 // ─── Localizations ────────────────────────────────────────────────────────────
 const RSS_LOCALES = {
   en: {
     no_articles: 'No articles to display.',
+    filter_all: 'All sources',
     diag_title: '⚠️ Sensor diagnostics',
     diag_footer: 'Missing sensors must be created as <code>command_line</code> sensors in <b>configuration.yaml</b>.',
     problems: {
@@ -43,6 +44,7 @@ const RSS_LOCALES = {
   },
   hu: {
     no_articles: 'Nincs megjeleníthető cikk.',
+    filter_all: 'Összes forrás',
     diag_title: '⚠️ Szenzor diagnosztika',
     diag_footer: 'A hibás szenzorokat <code>command_line</code> szenzorokként kell létrehozni a <b>configuration.yaml</b>-ban.',
     problems: {
@@ -73,6 +75,7 @@ const RSS_LOCALES = {
   },
   de: {
     no_articles: 'Keine Artikel zum Anzeigen.',
+    filter_all: 'Alle Quellen',
     diag_title: '⚠️ Sensor-Diagnose',
     diag_footer: 'Fehlende Sensoren müssen als <code>command_line</code>-Sensoren in <b>configuration.yaml</b> erstellt werden.',
     problems: {
@@ -99,6 +102,37 @@ const RSS_LOCALES = {
       title_size:          'Schriftgröße Artikeltitel (px)',
       desc_size:           'Schriftgröße Beschreibung (px)',
       color_hint:          'Leer lassen für Themenstandardfarbe',
+    },
+  },
+  it: {
+    no_articles: 'Nessun articolo da mostrare.',
+    filter_all: 'Tutte le fonti',
+    diag_title: '⚠️ Diagnostica sensori',
+    diag_footer: 'I sensori mancanti devono essere creati come sensori <code>command_line</code> in <b>configuration.yaml</b>.',
+    problems: {
+      missing_entity:        { icon: '⚠️', text: 'ID entità mancante nella configurazione.' },
+      not_found:              { icon: '❌', text: 'L\'entità non esiste in Home Assistant.' },
+      unavailable:            { icon: '🔌', text: 'Entità non disponibile o in stato sconosciuto.' },
+      no_articles_attribute:  { icon: '🗂️', text: 'L\'entità non ha un attributo "articles".' },
+      empty:                  { icon: '📭', text: 'L\'entità è raggiungibile ma non contiene ancora articoli.' },
+    },
+    cmd_hint: 'È necessario un sensore command_line:<br><b>entity_id:</b> {entity}<br><b>json_attributes:</b> articles',
+    ed: {
+      card_title:          'Titolo della card',
+      card_title_color:    'Colore titolo card',
+      article_title_color: 'Colore titolo articoli',
+      desc_color:          'Colore descrizione',
+      sources:              'Fonti (entità · nome · colore)',
+      add_source:           '+ Aggiungi fonte',
+      max_articles:         'Numero massimo di articoli',
+      card_height:          'Altezza card (px)',
+      show_source:          'Mostra categoria',
+      show_date:            'Mostra data',
+      show_desc:            'Mostra descrizione',
+      show_original:        'Mostra testo originale',
+      title_size:           'Dimensione carattere titolo (px)',
+      desc_size:            'Dimensione carattere descrizione (px)',
+      color_hint:           'Lascia vuoto per il colore predefinito del tema',
     },
   },
 };
@@ -132,6 +166,7 @@ class RssNewsCard extends HTMLElement {
     this._articles = [];
     this._lastStateKey = '';
     this._initialized = false;
+    this._selectedSource = 'all';
 
   }
 
@@ -417,14 +452,19 @@ class RssNewsCard extends HTMLElement {
       <ha-card>
         <style>
           .rss-inner{padding:12px 16px;}
-          .rss-header{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:8px;}
+          .rss-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;flex-wrap:wrap;}
+          .rss-header-left{display:flex;align-items:baseline;gap:8px;flex:1;min-width:0;}
           .rss-title{font-size:24px;font-weight:400;margin-bottom:0;}
           .rss-version{font-size:10px;color:var(--secondary-text-color);opacity:0.55;white-space:nowrap;flex-shrink:0;}
+          .rss-source-filter{flex-shrink:0;max-width:45%;padding:4px 8px;font-size:12px;border-radius:6px;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color);}
           .rss-scroll{overflow-y:scroll;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:thin;scrollbar-color:var(--divider-color) transparent;}
         </style>
         <div class="rss-inner">
           <div class="rss-header">
-            <div class="rss-title-el"></div>
+            <div class="rss-header-left">
+              <div class="rss-title-el"></div>
+            </div>
+            <select class="rss-source-filter"></select>
             <div class="rss-version">${CARD_VERSION}</div>
           </div>
           <div class="rss-diag"></div>
@@ -433,6 +473,36 @@ class RssNewsCard extends HTMLElement {
 
       </ha-card>`;
     this._initialized = true;
+
+    const filterEl = this.querySelector('.rss-source-filter');
+    if (filterEl) {
+      filterEl.addEventListener('change', () => {
+        this._selectedSource = filterEl.value;
+        this._updateContent(this._articles || [], JSON.parse(this._lastIssuesJson || '[]'));
+      });
+    }
+  }
+
+  _populateSourceFilter() {
+    const filterEl = this.querySelector('.rss-source-filter');
+    if (!filterEl) return;
+    const t = this._t();
+    // Deduplicate source names while preserving configured order
+    const names = [];
+    for (const s of (this._config.sources || [])) {
+      const name = s.name || s.entity;
+      if (name && !names.includes(name)) names.push(name);
+    }
+    const prevValue = filterEl.value || this._selectedSource;
+    filterEl.innerHTML = [
+      `<option value="all">${t.filter_all}</option>`,
+      ...names.map(n => `<option value="${n}">${n}</option>`),
+    ].join('');
+    // If the previously selected source no longer exists, fall back to "all"
+    if (prevValue !== 'all' && !names.includes(prevValue)) {
+      this._selectedSource = 'all';
+    }
+    filterEl.value = this._selectedSource;
   }
 
   _updateContent(articles, issues) {
@@ -451,11 +521,16 @@ class RssNewsCard extends HTMLElement {
     const scrollEl = this.querySelector('.rss-scroll');
     if (scrollEl) scrollEl.style.height = (card_height || 400) + 'px';
 
+    this._populateSourceFilter();
+    const filteredArticles = this._selectedSource === 'all'
+      ? articles
+      : articles.filter(a => a._sourceName === this._selectedSource);
+
     const diagEl = this.querySelector('.rss-diag');
     const artEl = this.querySelector('.rss-articles');
     if (diagEl) diagEl.innerHTML = issues.length > 0 ? this._renderDiagnostics(issues) : '';
     if (artEl) {
-      artEl.innerHTML = this._buildArticlesHtml(articles);
+      artEl.innerHTML = this._buildArticlesHtml(filteredArticles);
       // Attach click listeners – popup on desktop, in-app modal on mobile/companion app
       artEl.querySelectorAll('.rss-article-row').forEach(row => {
         row.addEventListener('click', () => {
