@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.8.1 · build 2026-08-15-04';
+const CARD_VERSION = 'v1.8.1 · build 2026-08-15-05';
 
 // ─── Localizations ────────────────────────────────────────────────────────────
 const RSS_LOCALES = {
@@ -297,6 +297,20 @@ class RssNewsCard extends HTMLElement {
     return article._sourceName;
   }
 
+  _splitAggregatorTitle(article) {
+    // Aggregatori come Google News mettono il nome della testata originale
+    // in coda al titolo (es. "Titolo articolo - Corriere della Sera").
+    // Qui separiamo la testata per poterla mostrare con uno stile diverso
+    // invece che come parte del titolo.
+    const title = String(article.title || '');
+    const idx = title.lastIndexOf(' - ');
+    if (idx === -1) return { main: title, publication: null };
+    const main = title.slice(0, idx).trim();
+    const publication = title.slice(idx + 3).trim();
+    if (!main || !publication) return { main: title, publication: null };
+    return { main, publication };
+  }
+
   _formatDate(pubDate) {
     try {
       const d = new Date(pubDate);
@@ -332,12 +346,18 @@ class RssNewsCard extends HTMLElement {
       // Evita di ripetere due volte la stessa etichetta se non c'è una vera
       // categoria/topic e il fallback di _topicLabel coincide col provider.
       const showBothLabels = topic && provider && topic.toLowerCase() !== String(provider).toLowerCase();
+      // Google News aggiunge " - Testata" in coda al titolo: lo separiamo
+      // per mostrarlo in corsivo con un colore diverso dal resto del titolo.
+      const isAggregator = /google/i.test(String(provider || '')) || /google/i.test(String(a._sourceName || ''));
+      const { main: titleMain, publication } = isAggregator ? this._splitAggregatorTitle(a) : { main: a.title, publication: null };
+      const mainTitleColor = this._isVisited(a.link) ? 'var(--disabled-text-color)' : (article_title_color || 'var(--primary-text-color)');
+      const publicationColor = desc_color || 'var(--secondary-text-color)';
       return `
       <div class="rss-article-row" data-rss-url="${a.link}"
         style="display:flex;flex-direction:column;gap:8px;padding:12px 0;border-bottom:1px solid var(--divider-color);cursor:pointer;-webkit-tap-highlight-color:transparent;">
         ${a.image && a.image.trim() !== '' ? `<img src="${a.image}" style="width:100%;height:${image_height}px;object-fit:cover;border-radius:8px;display:block;" onerror="this.style.display='none'"/>` : ''}
         <div style="flex:1;min-width:0;text-align:left;">
-          <div class="rss-atitle" style="font-size:${title_font_size}px;font-weight:600;line-height:1.4;color:${this._isVisited(a.link) ? 'var(--disabled-text-color)' : (article_title_color || 'var(--primary-text-color)')};white-space:normal;word-break:break-word;margin-bottom:4px;">${a.title}</div>
+          <div class="rss-atitle" style="font-size:${title_font_size}px;font-weight:600;line-height:1.4;color:${mainTitleColor};white-space:normal;word-break:break-word;margin-bottom:4px;">${titleMain}${publication ? ` <span style="font-style:italic;font-weight:400;opacity:0.75;color:${publicationColor};">– ${publication}</span>` : ''}</div>
           ${show_original && a.title_original ? `<div style="font-size:${Math.max(10, title_font_size - 2)}px;font-style:italic;opacity:0.65;color:${desc_color || 'var(--secondary-text-color)'};line-height:1.3;white-space:normal;word-break:break-word;margin-bottom:4px;">${a.title_original}</div>` : ''}
           ${(show_source || show_date) ? `
             <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:4px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
