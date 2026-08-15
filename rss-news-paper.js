@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.8.0 · build 2026-08-15-02';
+const CARD_VERSION = 'v1.8.1 · build 2026-08-15-03';
 
 // ─── Localizations ────────────────────────────────────────────────────────────
 const RSS_LOCALES = {
@@ -156,7 +156,7 @@ class RssNewsCard extends HTMLElement {
       show_date: true,
       show_original: true,
       image_width: 100,
-      image_height: 180,
+      image_height: 360,
       title_font_size: 15,
       desc_font_size: 14,
       card_title_color: '',
@@ -179,7 +179,7 @@ class RssNewsCard extends HTMLElement {
       show_date:        config.show_date !== false,
       show_original:    config.show_original !== false,
       image_width:      config.image_width || 100,
-      image_height:     config.image_height || 180,
+      image_height:     config.image_height || 360,
       title_font_size:  config.title_font_size || 15,
       desc_font_size:   config.desc_font_size || 14,
       card_title_color: config.card_title_color || '',
@@ -507,7 +507,7 @@ class RssNewsCardEditor extends HTMLElement {
         <input type="number" id="ed-imgw" min="50" max="300" value="${c.image_width || 100}"/>
 
         <label>${t.ed.img_height}</label>
-        <input type="number" id="ed-imgh" min="50" max="500" value="${c.image_height || 180}"/>
+        <input type="number" id="ed-imgh" min="50" max="600" value="${c.image_height || 360}"/>
 
         <label>${t.ed.title_size}</label>
         <input type="number" id="ed-titlesize" min="10" max="30" value="${c.title_font_size || 15}"/>
@@ -669,7 +669,7 @@ class RssNewsCardEditor extends HTMLElement {
     bind('#ed-max',      'max_articles',    v => parseInt(v) || 10);
     bind('#ed-height',   'card_height',     v => parseInt(v) || 400);
     bind('#ed-imgw',     'image_width',     v => parseInt(v) || 100);
-    bind('#ed-imgh',     'image_height',    v => parseInt(v) || 70);
+    bind('#ed-imgh',     'image_height',    v => parseInt(v) || 360);
     bind('#ed-titlesize','title_font_size', v => parseInt(v) || 15);
     bind('#ed-descsize', 'desc_font_size',  v => parseInt(v) || 14);
     bind('#ed-card-title-color-text',    'card_title_color');
