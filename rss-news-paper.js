@@ -9,6 +9,14 @@
 // which build is actually loaded, without opening dev tools.
 const CARD_VERSION = 'v1.10.1 · build 2026-08-15-10';
 
+// ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
+// Se l'utente non imposta questi valori nella card, vengono usati questi.
+const DEFAULT_ENTITY = 'sensor.news_aggregator';
+const DEFAULT_FEED_ADMIN_BASE_URL = 'http://192.168.1.249/news-aggregator/';
+// Nome del file PHP di amministrazione fonti: resta interno al JS,
+// l'utente inserisce solo il percorso/cartella del server, non il file.
+const FEED_ADMIN_FILENAME = 'sources_admin.php';
+
 // ─── Localizations ────────────────────────────────────────────────────────────
 const RSS_LOCALES = {
   en: {
@@ -39,7 +47,7 @@ const RSS_LOCALES = {
       title_size:        'Article title font size (px)',
       desc_size:         'Description font size (px)',
       color_hint:        'Leave empty for theme default',
-      feed_admin_url:    'Feed admin endpoint URL',
+      feed_admin_url:    'RSS server path (folder only, no filename)',
       feed_admin_token:  'Feed admin token',
       feed_sources:      'RSS feed sources (server)',
       feed_add:          '+ Add feed',
@@ -76,7 +84,7 @@ const RSS_LOCALES = {
       title_size:          'Cím betűmérete (px)',
       desc_size:           'Leírás betűmérete (px)',
       color_hint:          'Üresen hagyva a téma alapszínét használja',
-      feed_admin_url:      'Feed admin végpont URL',
+      feed_admin_url:      'RSS szerver útvonal (csak mappa, fájlnév nélkül)',
       feed_admin_token:    'Feed admin token',
       feed_sources:        'RSS források (szerver)',
       feed_add:            '+ Forrás hozzáadása',
@@ -113,7 +121,7 @@ const RSS_LOCALES = {
       title_size:          'Schriftgröße Artikeltitel (px)',
       desc_size:           'Schriftgröße Beschreibung (px)',
       color_hint:          'Leer lassen für Themenstandardfarbe',
-      feed_admin_url:      'Feed-Admin-Endpunkt-URL',
+      feed_admin_url:      'RSS-Server-Pfad (nur Ordner, ohne Dateiname)',
       feed_admin_token:    'Feed-Admin-Token',
       feed_sources:        'RSS-Quellen (Server)',
       feed_add:            '+ Quelle hinzufügen',
@@ -150,7 +158,7 @@ const RSS_LOCALES = {
       title_size:           'Dimensione carattere titolo (px)',
       desc_size:            'Dimensione carattere descrizione (px)',
       color_hint:           'Lascia vuoto per il colore predefinito del tema',
-      feed_admin_url:       'URL endpoint amministrazione fonti',
+      feed_admin_url:       'Percorso server fonti RSS (cartella, senza nome file)',
       feed_admin_token:     'Token amministrazione fonti',
       feed_sources:         'Fonti RSS (server)',
       feed_add:             '+ Aggiungi fonte RSS',
@@ -201,7 +209,7 @@ class RssNewsCard extends HTMLElement {
   static getStubConfig() {
     return {
       title: 'News',
-      entity: 'sensor.rss_news',
+      entity: DEFAULT_ENTITY,
       max_articles: 10,
       card_height: 400,
       show_description: true,
@@ -217,12 +225,9 @@ class RssNewsCard extends HTMLElement {
   }
 
   setConfig(config) {
-    if (!config.entity || typeof config.entity !== 'string') {
-      throw new Error('You must define an "entity" (the single sensor aggregating all RSS sources).');
-    }
     this._config = {
       title:            config.title || '',
-      entity:           config.entity,
+      entity:           (config.entity && typeof config.entity === 'string') ? config.entity : DEFAULT_ENTITY,
       max_articles:     config.max_articles || 10,
       card_height:      config.card_height || 400,
       show_description: config.show_description !== false,
@@ -234,7 +239,7 @@ class RssNewsCard extends HTMLElement {
       card_title_color: config.card_title_color || '',
       article_title_color: config.article_title_color || '',
       desc_color:       config.desc_color || '',
-      feed_admin_url:   config.feed_admin_url || '',
+      feed_admin_url:   config.feed_admin_url || DEFAULT_FEED_ADMIN_BASE_URL,
       feed_admin_token: config.feed_admin_token || '',
     };
     this._initialized = false;
@@ -629,11 +634,11 @@ class RssNewsCardEditor extends HTMLElement {
         <input type="text" id="ed-title" value="${c.title || ''}"/>
 
         <label>${t.ed.entity}</label>
-        <input type="text" id="ed-entity" placeholder="sensor.rss_news" value="${c.entity || ''}"/>
+        <input type="text" id="ed-entity" placeholder="${DEFAULT_ENTITY}" value="${c.entity || ''}"/>
 
         <div style="margin-top:18px;padding-top:12px;border-top:1px solid var(--divider-color);">
           <label>${t.ed.feed_admin_url}</label>
-          <input type="text" id="ed-feed-admin-url" placeholder="https://server2.local/rss/sources_admin.php" value="${c.feed_admin_url || ''}"/>
+          <input type="text" id="ed-feed-admin-url" placeholder="${DEFAULT_FEED_ADMIN_BASE_URL}" value="${c.feed_admin_url || ''}"/>
 
           <label>${t.ed.feed_admin_token}</label>
           <input type="text" id="ed-feed-admin-token" placeholder="token" value="${c.feed_admin_token || ''}"/>
@@ -839,8 +844,15 @@ class RssNewsCardEditor extends HTMLElement {
   }
 
   // ─── Fonti RSS lato server: fetch helper ─────────────────────────────────
+  _feedAdminFullUrl() {
+    let base = (this._config.feed_admin_url || DEFAULT_FEED_ADMIN_BASE_URL || '').trim();
+    if (!base) return '';
+    if (!/\/$/.test(base)) base += '/'; // assicura lo slash finale prima del nome file
+    return base + FEED_ADMIN_FILENAME;
+  }
+
   async _feedApi(body) {
-    const url = (this._config.feed_admin_url || '').trim();
+    const url = this._feedAdminFullUrl();
     const token = (this._config.feed_admin_token || '').trim();
     if (!url) throw new Error(this._t().ed.feed_set_url_first);
     const opts = body
@@ -857,7 +869,7 @@ class RssNewsCardEditor extends HTMLElement {
     const container = this.querySelector('#ed-feed-sources');
     if (!container) return;
     const t = this._t();
-    if (!(this._config.feed_admin_url || '').trim()) {
+    if (!this._feedAdminFullUrl()) {
       container.innerHTML = `<div class="rss-feed-msg">${t.ed.feed_set_url_first}</div>`;
       return;
     }
