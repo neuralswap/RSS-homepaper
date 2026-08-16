@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.13.0 · build 2026-08-16-21';
+const CARD_VERSION = 'v1.13.1 · build 2026-08-16-22';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -332,13 +332,20 @@ class RssNewsCard extends HTMLElement {
   }
 
   _getArticles() {
+    // Lista COMPLETA (non troncata) ordinata per data, di tutte le fonti.
+    // Il limite "Numero massimo di articoli" viene applicato più avanti, in
+    // _updateContent(), DOPO aver eventualmente filtrato per fonte — non qui.
+    // Applicarlo qui (su tutte le fonti insieme, prima del filtro) tagliava
+    // fuori dal pool intere fonti con articoli mediamente più "vecchi" delle
+    // altre: sparivano sia dalla lista sia dal menu a tendina, pur essendo
+    // presenti nel sensore (il dato grezzo di Home Assistant non è mai
+    // troncato — solo quello che la card ne faceva lo era).
     if (!this._hass) return [];
     const state = this._hass.states[this._config.entity];
     if (!state) return [];
     const articles = state.attributes.articles;
     if (!Array.isArray(articles)) return [];
-    const all = [...articles].sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
-    return all.slice(0, this._config.max_articles);
+    return [...articles].sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
   }
 
   _feedAdminFullUrl() {
@@ -686,9 +693,16 @@ class RssNewsCard extends HTMLElement {
     if (scrollEl) scrollEl.style.height = (card_height || 400) + 'px';
 
     this._populateSourceFilter();
-    const filteredArticles = this._selectedSource === 'all'
+    // Il taglio "Numero massimo di articoli" va applicato DOPO il filtro per
+    // fonte: così "Tutte le fonti" mostra gli N più recenti in assoluto
+    // (comportamento invariato), ma selezionando una fonte specifica se ne
+    // vedono comunque fino a N articoli SUOI, invece di rischiare zero
+    // risultati perché quella fonte era stata esclusa dal taglio globale
+    // fatto su tutte le fonti insieme.
+    const bySource = this._selectedSource === 'all'
       ? articles
       : articles.filter(a => this._providerLabel(a) === this._selectedSource);
+    const filteredArticles = bySource.slice(0, this._config.max_articles);
 
     const diagEl = this.querySelector('.rss-diag');
     const artEl = this.querySelector('.rss-articles');
