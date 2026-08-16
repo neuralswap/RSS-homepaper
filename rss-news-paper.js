@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.12.1 · build 2026-08-16-19';
+const CARD_VERSION = 'v1.12.2 · build 2026-08-16-20';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -349,17 +349,15 @@ class RssNewsCard extends HTMLElement {
     return base + 'sources_admin.php';
   }
 
-  async _loadSourceColors() {
+  async _loadSourceColors(force = false) {
     const url = this._feedAdminFullUrl();
     const token = (this._config.feed_admin_token || '').trim();
     if (!url) return;
-    // Non blocchiamo per sempre in base a url/token (che restano invariati
-    // anche quando l'utente cambia solo un colore sul server): usiamo invece
-    // una soglia temporale, così la card si autoaggiorna da sola quando le
-    // fonti vengono modificate dall'editor, senza bisogno di ricaricare la
-    // pagina/dashboard.
+    // Refresh automatico "a tempo" in background (throttle) + refresh forzato
+    // immediato quando l'utente interagisce col combobox fonte (force=true):
+    // così vede subito il colore aggiornato invece di aspettare il timer.
     const now = Date.now();
-    if (this._sourceColorsFetchedAt && (now - this._sourceColorsFetchedAt) < SOURCE_COLORS_REFRESH_MS) return;
+    if (!force && this._sourceColorsFetchedAt && (now - this._sourceColorsFetchedAt) < SOURCE_COLORS_REFRESH_MS) return;
     this._sourceColorsFetchedAt = now; // segna il tentativo subito, evita richieste in parallelo
     try {
       const res = await fetch(url + (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token), {
@@ -569,6 +567,10 @@ class RssNewsCard extends HTMLElement {
         // Riportiamo sempre lo scroll in cima alla prima notizia.
         const scrollEl = this.querySelector('.rss-scroll');
         if (scrollEl) scrollEl.scrollTop = 0;
+        // Refresh immediato dei colori fonte (bypassa il throttle a tempo):
+        // così un cambio colore appena salvato nell'editor si vede subito
+        // interagendo col combobox, senza aspettare il timer in background.
+        this._loadSourceColors(true);
       });
     }
   }
@@ -694,6 +696,7 @@ class RssNewsCardEditor extends HTMLElement {
         .rss-ed input[type=text],.rss-ed input[type=number]{width:100%;padding:4px 8px;box-sizing:border-box;border:1px solid var(--divider-color);border-radius:4px;background:var(--card-background-color);color:var(--primary-text-color);}
         .rss-src-row{display:flex;gap:8px;align-items:center;margin-bottom:6px;}
         .rss-src-row input{width:auto!important;}
+        .rss-src-row input[type="color"]{width:36px!important;height:32px!important;padding:2px!important;flex-shrink:0!important;box-sizing:border-box;}
         .rss-add{margin-top:6px;padding:4px 12px;cursor:pointer;background:var(--primary-color);color:white;border:none;border-radius:4px;}
         .rss-del{padding:2px 8px;cursor:pointer;border:1px solid var(--divider-color);border-radius:4px;background:transparent;color:var(--primary-text-color);}
         .rss-save{padding:2px 8px;cursor:pointer;border:1px solid var(--primary-color);border-radius:4px;background:transparent;color:var(--primary-color);flex-shrink:0;}
