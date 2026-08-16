@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.15.1 · build 2026-08-16-25';
+const CARD_VERSION = 'v1.15.2 · build 2026-08-16-26';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -219,6 +219,14 @@ class RssNewsCard extends HTMLElement {
     this._selectedSource = 'all';
     this._sourceColors = {};
     this._sourceColorsFetchedAt = 0;
+    // Pattern bloccati (long-press -> "Blocca"): caricati dal server e
+    // tenuti in memoria qui, così ogni volta che si ricostruisce la lista
+    // (cambio fonte nel filtro, refresh periodico, ecc.) gli articoli
+    // bloccati restano fuori invece di ricomparire dal dato grezzo del
+    // sensore, che il server aggiorna solo al prossimo giro di
+    // rebuild_cache.php.
+    this._blockedPatterns = [];
+    this._blockedPatternsFetchedAt = 0;
 
   }
 
@@ -271,6 +279,7 @@ class RssNewsCard extends HTMLElement {
     // Colore per-fonte (badge categoria): caricato dal server admin fonti.
     // _loadSourceColors() è auto-limitato nel tempo (vedi SOURCE_COLORS_REFRESH_MS).
     this._loadSourceColors();
+    this._loadBlockedPatterns();
   }
 
   set hass(hass) {
@@ -280,7 +289,7 @@ class RssNewsCard extends HTMLElement {
     // sensore) altrimenti se il sensore aggiorna raramente il colore
     // impostato lato server resterebbe non visto per molto più a lungo.
     this._loadSourceColors();
-    // Skip render if the single source sensor hasn't changed
+    this._loadBlockedPatterns();
     const st = hass.states[this._config.entity];
     const stateKey = st ? (this._config.entity + ':' + st.state + ':' + st.last_updated) : this._config.entity;
     if (stateKey === this._lastStateKey && this._initialized) return;
@@ -397,6 +406,32 @@ class RssNewsCard extends HTMLElement {
     }
   }
 
+  async _loadBlockedPatterns(force = false) {
+    const url = this._blockPathsAdminFullUrl();
+    const token = (this._config.feed_admin_token || '').trim();
+    if (!url) return;
+    const now = Date.now();
+    if (!force && this._blockedPatternsFetchedAt && (now - this._blockedPatternsFetchedAt) < SOURCE_COLORS_REFRESH_MS) return;
+    this._blockedPatternsFetchedAt = now;
+    try {
+      const res = await fetch(url + (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token), {
+        method: 'GET',
+        headers: { 'X-API-Token': token },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) return; // silenzioso: la card resta comunque funzionante senza filtro
+      this._blockedPatterns = (data.blocked || []).map(b => b.pattern).filter(Boolean);
+      // Riapplica subito il filtro agli articoli già renderizzati (es. dopo
+      // un reload della pagina, prima che l'utente tocchi qualunque cosa).
+      if (this._hass) this._updateContent(this._articles || [], JSON.parse(this._lastIssuesJson || '[]'));
+    } catch {
+      // Nessuna connessione al server: la card resta comunque funzionante,
+      // semplicemente senza il filtro dei percorsi bloccati finché non
+      // torna raggiungibile (prossimo tentativo dopo SOURCE_COLORS_REFRESH_MS,
+      // o subito se l'utente blocca un nuovo percorso nel frattempo).
+    }
+  }
+
   _categoryColor(article) {
     const provider = String(this._providerLabel(article) || '').trim().toLowerCase();
     return (provider && this._sourceColors[provider]) || 'var(--primary-color)';
@@ -509,7 +544,7 @@ class RssNewsCard extends HTMLElement {
       return `
       <div class="rss-article-row" data-rss-url="${a.link}"
         style="display:flex;flex-direction:column;gap:8px;padding:12px 0;border-bottom:1px solid var(--divider-color);cursor:pointer;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;-moz-user-select:none;user-select:none;-webkit-touch-callout:none;">
-        ${imgSrc ? `<img src="${imgSrc}" style="width:100%;height:auto;display:block;border-radius:8px;" onerror="this.style.display='none'"/>` : ''}
+        ${imgSrc ? `<img src="${imgSrc}" draggable="false" style="width:100%;height:auto;display:block;border-radius:8px;" onerror="this.style.display='none'"/>` : ''}
         <div style="flex:1;min-width:0;text-align:left;">
           <div class="rss-atitle" style="font-size:${title_font_size}px;font-weight:600;line-height:1.4;color:${mainTitleColor};white-space:normal;word-break:break-word;margin-bottom:4px;">${titleMain}${publication ? ` <span style="font-style:italic;font-weight:400;opacity:0.75;color:${publicationColor};">– ${publication}</span>` : ''}</div>
           ${show_original && a.title_original ? `<div style="font-size:${Math.max(10, title_font_size - 2)}px;font-style:italic;opacity:0.65;color:${desc_color || 'var(--secondary-text-color)'};line-height:1.3;white-space:normal;word-break:break-word;margin-bottom:4px;">${a.title_original}</div>` : ''}
@@ -570,17 +605,6 @@ class RssNewsCard extends HTMLElement {
     return data;
   }
 
-  // Toglie subito dalla vista corrente gli articoli il cui link contiene il
-  // pattern appena bloccato: feedback immediato in attesa che il prossimo
-  // rebuild_cache.php (server) li escluda per davvero dalla cache.
-  _removeArticlesMatchingPattern(pattern) {
-    const artEl = this.querySelector('.rss-articles');
-    if (!artEl) return;
-    artEl.querySelectorAll('.rss-article-row').forEach(row => {
-      if ((row.dataset.rssUrl || '').includes(pattern)) row.remove();
-    });
-  }
-
   _ensureBlockModalStyles() {
     if (document.getElementById('rss-block-modal-style')) return;
     const style = document.createElement('style');
@@ -626,7 +650,10 @@ class RssNewsCard extends HTMLElement {
       btn.textContent = '…';
       try {
         await this._blockPath(pattern);
-        this._removeArticlesMatchingPattern(pattern);
+        if (!this._blockedPatterns.includes(pattern)) {
+          this._blockedPatterns.push(pattern);
+        }
+        this._updateContent(this._articles || [], JSON.parse(this._lastIssuesJson || '[]'));
         close();
       } catch (e) {
         alert(e.message);
@@ -678,6 +705,7 @@ class RssNewsCard extends HTMLElement {
           .rss-source-filter-option.selected{font-weight:700;}
           .rss-source-filter-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;background:var(--secondary-text-color);}
           .rss-scroll{overflow-y:scroll;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:thin;scrollbar-color:var(--divider-color) transparent;}
+          .rss-article-row,.rss-article-row *{-webkit-user-select:none!important;-moz-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important;}
         </style>
         <div class="rss-inner">
           <div class="rss-header">
@@ -830,6 +858,19 @@ class RssNewsCard extends HTMLElement {
     if (!this._initialized) this._render();
     const { title, card_height, card_title_color } = this._config;
 
+    // Filtra via gli articoli il cui link corrisponde a un percorso
+    // bloccato (long-press -> "Blocca"). Va fatto QUI, in cima, prima di
+    // qualunque altro uso di "articles": il dato grezzo del sensore Home
+    // Assistant continua a contenerli finché il prossimo rebuild_cache.php
+    // non li esclude lato server, quindi senza questo filtro locale
+    // ricomparirebbero ogni volta che la card si ridisegna da _articles
+    // (cambio fonte nel filtro, refresh del colore, ecc.), non solo alla
+    // primissima rimozione ottimistica dopo il blocco.
+    if (this._blockedPatterns.length > 0) {
+      articles = articles.filter(a => !this._blockedPatterns.some(p => (a.link || '').includes(p)));
+    }
+    this._articles = articles; // _populateSourceFilter() legge da qui
+
     // Update title
     const titleEl = this.querySelector('.rss-title-el');
     if (titleEl) {
@@ -887,6 +928,12 @@ class RssNewsCard extends HTMLElement {
         // ancora attiva sotto. Il CSS user-select:none sulla riga aiuta,
         // ma è questo preventDefault a impedire davvero il menu nativo.
         row.addEventListener('contextmenu', (ev) => ev.preventDefault());
+        // Su alcune WebView Android (es. l'app companion di Home Assistant)
+        // il solo contextmenu non basta: la selezione può partire prima che
+        // quell'evento scatti. selectstart è il momento esatto in cui il
+        // browser sta per avviare una selezione: bloccarlo qui è più
+        // affidabile del CSS user-select da solo su questi WebView.
+        row.addEventListener('selectstart', (ev) => ev.preventDefault());
         row.addEventListener('pointermove', (ev) => {
           if (!lpTimer) return;
           if (Math.abs(ev.clientX - startX) > LONG_PRESS_MOVE_TOLERANCE ||
