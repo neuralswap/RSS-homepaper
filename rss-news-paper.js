@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.10.1 · build 2026-08-15-10';
+const CARD_VERSION = 'v1.11.0 · build 2026-08-16-15';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -628,8 +628,10 @@ class RssNewsCardEditor extends HTMLElement {
         .rss-slider:before{content:'';position:absolute;height:14px;width:14px;left:3px;bottom:3px;background:white;border-radius:50%;transition:.2s;}
         input:checked + .rss-slider{background:var(--primary-color);}
         input:checked + .rss-slider:before{transform:translateX(16px);}
+        .rss-ed-version{font-size:11px;opacity:0.55;text-align:right;margin-bottom:8px;font-family:monospace;}
       </style>
       <div class="rss-ed">
+        <div class="rss-ed-version">JS: ${CARD_VERSION}</div>
         <label>${t.ed.card_title}</label>
         <input type="text" id="ed-title" value="${c.title || ''}"/>
 
