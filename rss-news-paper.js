@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.15.0 · build 2026-08-16-24';
+const CARD_VERSION = 'v1.15.1 · build 2026-08-16-25';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -508,7 +508,7 @@ class RssNewsCard extends HTMLElement {
       const imgSrc = this._resolveArticleImage(a);
       return `
       <div class="rss-article-row" data-rss-url="${a.link}"
-        style="display:flex;flex-direction:column;gap:8px;padding:12px 0;border-bottom:1px solid var(--divider-color);cursor:pointer;-webkit-tap-highlight-color:transparent;">
+        style="display:flex;flex-direction:column;gap:8px;padding:12px 0;border-bottom:1px solid var(--divider-color);cursor:pointer;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;-moz-user-select:none;user-select:none;-webkit-touch-callout:none;">
         ${imgSrc ? `<img src="${imgSrc}" style="width:100%;height:auto;display:block;border-radius:8px;" onerror="this.style.display='none'"/>` : ''}
         <div style="flex:1;min-width:0;text-align:left;">
           <div class="rss-atitle" style="font-size:${title_font_size}px;font-weight:600;line-height:1.4;color:${mainTitleColor};white-space:normal;word-break:break-word;margin-bottom:4px;">${titleMain}${publication ? ` <span style="font-style:italic;font-weight:400;opacity:0.75;color:${publicationColor};">– ${publication}</span>` : ''}</div>
@@ -881,6 +881,12 @@ class RssNewsCard extends HTMLElement {
             if (url) this._showBlockPathModal(url);
           }, LONG_PRESS_MS);
         });
+        // Su Android/touch, tenere premuto fa scattare anche il menu nativo
+        // "seleziona testo / copia" del browser (l'evento contextmenu):
+        // senza bloccarlo, il nostro popup appare CON quella selezione
+        // ancora attiva sotto. Il CSS user-select:none sulla riga aiuta,
+        // ma è questo preventDefault a impedire davvero il menu nativo.
+        row.addEventListener('contextmenu', (ev) => ev.preventDefault());
         row.addEventListener('pointermove', (ev) => {
           if (!lpTimer) return;
           if (Math.abs(ev.clientX - startX) > LONG_PRESS_MOVE_TOLERANCE ||
