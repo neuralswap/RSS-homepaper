@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.13.1 · build 2026-08-16-22';
+const CARD_VERSION = 'v1.14.0 · build 2026-08-16-23';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -552,6 +552,8 @@ class RssNewsCard extends HTMLElement {
           .rss-source-filter-btn-caret{flex-shrink:0;opacity:0.6;font-size:9px;}
           .rss-source-filter-menu{position:absolute;top:calc(100% + 4px);right:0;min-width:150px;max-width:min(240px,80vw);max-height:280px;overflow-y:auto;background:var(--card-background-color);border:1px solid var(--divider-color);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.35);z-index:20;padding:4px 0;}
           .rss-source-filter-menu[hidden]{display:none;}
+          .rss-source-filter-scroll-hint{position:sticky;bottom:0;left:0;right:0;height:20px;margin-top:-20px;pointer-events:none;background:linear-gradient(to bottom, transparent, var(--card-background-color) 78%);display:flex;align-items:flex-end;justify-content:center;padding-bottom:1px;font-size:9px;color:var(--secondary-text-color);opacity:0;transition:opacity .15s ease;}
+          .rss-source-filter-scroll-hint.visible{opacity:0.9;}
           .rss-source-filter-option{display:flex;align-items:center;gap:8px;padding:9px 12px;font-size:13px;color:var(--primary-text-color);cursor:pointer;-webkit-tap-highlight-color:transparent;}
           .rss-source-filter-option:hover,.rss-source-filter-option:active{background:var(--secondary-background-color);}
           .rss-source-filter-option.selected{font-weight:700;}
@@ -586,7 +588,20 @@ class RssNewsCard extends HTMLElement {
       filterBtn.addEventListener('click', (ev) => {
         ev.stopPropagation();
         filterMenu.hidden = !filterMenu.hidden;
+        // Il menu è display:none mentre è chiuso, quindi scrollHeight/
+        // clientHeight sono inattendibili finché non torna visibile: va
+        // ricalcolato ORA, subito dopo averlo riaperto.
+        if (!filterMenu.hidden) this._updateFilterScrollHint();
       });
+    }
+    // Indicatore "ci sono altre fonti sotto": un solo listener di scroll sul
+    // menu per istanza (stesso motivo del listener di chiusura sotto).
+    if (!this._boundFilterMenuScroll) {
+      this._boundFilterMenuScroll = () => this._updateFilterScrollHint();
+    }
+    if (filterMenu) {
+      filterMenu.removeEventListener('scroll', this._boundFilterMenuScroll);
+      filterMenu.addEventListener('scroll', this._boundFilterMenuScroll);
     }
     // Click fuori dal menu -> chiudi. Un solo listener sul document per
     // istanza (rimosso e riaggiunto a ogni _render per evitare che si
@@ -666,14 +681,30 @@ class RssNewsCard extends HTMLElement {
         <div class="rss-source-filter-option${o.value === this._selectedSource ? ' selected' : ''}" data-value="${String(o.value).replace(/"/g, '&quot;')}">
           <span class="rss-source-filter-dot" style="background:${o.color || 'var(--secondary-text-color)'};"></span>
           <span>${o.label}</span>
-        </div>`).join('');
+        </div>`).join('') + '<div class="rss-source-filter-scroll-hint">▾</div>';
       menu.querySelectorAll('.rss-source-filter-option').forEach(opt => {
         opt.addEventListener('click', (ev) => {
           ev.stopPropagation();
           this._selectSource(opt.dataset.value);
         });
       });
+      // Se il menu è già aperto quando lo ripopoliamo (es. refresh periodico
+      // dei colori mentre l'utente ha il menu sotto gli occhi), ricalcoliamo
+      // subito l'indicatore invece di aspettare il prossimo scroll/apertura.
+      if (!menu.hidden) this._updateFilterScrollHint();
     }
+  }
+
+  // Mostra/nasconde la sfumatura + freccina in fondo al menu fonti: visibile
+  // solo quando c'è altro contenuto sotto da scorrere, sparisce quando si è
+  // arrivati in fondo alla lista (o se la lista è già interamente visibile
+  // senza bisogno di scroll).
+  _updateFilterScrollHint() {
+    const menu = this.querySelector('.rss-source-filter-menu');
+    const hint = this.querySelector('.rss-source-filter-scroll-hint');
+    if (!menu || !hint) return;
+    const hasMoreBelow = (menu.scrollHeight - menu.scrollTop - menu.clientHeight) > 4;
+    hint.classList.toggle('visible', hasMoreBelow);
   }
 
   _updateContent(articles, issues) {
