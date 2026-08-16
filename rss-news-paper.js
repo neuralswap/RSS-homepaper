@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.12.2 · build 2026-08-16-20';
+const CARD_VERSION = 'v1.13.0 · build 2026-08-16-21';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -538,14 +538,31 @@ class RssNewsCard extends HTMLElement {
           .rss-header-top{display:flex;align-items:center;justify-content:space-between;gap:8px;}
           .rss-title{font-size:24px;font-weight:400;margin-bottom:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
           .rss-version{font-size:10px;color:var(--secondary-text-color);opacity:0.55;white-space:nowrap;align-self:flex-end;}
-          .rss-source-filter{flex-shrink:0;max-width:60%;padding:4px 8px;font-size:12px;border-radius:6px;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color);}
+          .rss-source-filter-wrap{position:relative;flex-shrink:0;max-width:60%;}
+          .rss-source-filter-btn{display:flex;align-items:center;gap:6px;width:100%;max-width:100%;padding:4px 8px;font-size:12px;border-radius:6px;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color);cursor:pointer;-webkit-tap-highlight-color:transparent;}
+          .rss-source-filter-btn-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;background:var(--secondary-text-color);}
+          .rss-source-filter-btn-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;text-align:left;}
+          .rss-source-filter-btn-caret{flex-shrink:0;opacity:0.6;font-size:9px;}
+          .rss-source-filter-menu{position:absolute;top:calc(100% + 4px);right:0;min-width:150px;max-width:min(240px,80vw);max-height:280px;overflow-y:auto;background:var(--card-background-color);border:1px solid var(--divider-color);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.35);z-index:20;padding:4px 0;}
+          .rss-source-filter-menu[hidden]{display:none;}
+          .rss-source-filter-option{display:flex;align-items:center;gap:8px;padding:9px 12px;font-size:13px;color:var(--primary-text-color);cursor:pointer;-webkit-tap-highlight-color:transparent;}
+          .rss-source-filter-option:hover,.rss-source-filter-option:active{background:var(--secondary-background-color);}
+          .rss-source-filter-option.selected{font-weight:700;}
+          .rss-source-filter-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;background:var(--secondary-text-color);}
           .rss-scroll{overflow-y:scroll;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:thin;scrollbar-color:var(--divider-color) transparent;}
         </style>
         <div class="rss-inner">
           <div class="rss-header">
             <div class="rss-header-top">
               <div class="rss-title-el"></div>
-              <select class="rss-source-filter"></select>
+              <div class="rss-source-filter-wrap">
+                <button type="button" class="rss-source-filter-btn">
+                  <span class="rss-source-filter-btn-dot"></span>
+                  <span class="rss-source-filter-btn-label"></span>
+                  <span class="rss-source-filter-btn-caret">▾</span>
+                </button>
+                <div class="rss-source-filter-menu" hidden></div>
+              </div>
             </div>
             <div class="rss-version">${CARD_VERSION}</div>
           </div>
@@ -556,28 +573,56 @@ class RssNewsCard extends HTMLElement {
       </ha-card>`;
     this._initialized = true;
 
-    const filterEl = this.querySelector('.rss-source-filter');
-    if (filterEl) {
-      filterEl.addEventListener('change', () => {
-        this._selectedSource = filterEl.value;
-        this._updateContent(this._articles || [], JSON.parse(this._lastIssuesJson || '[]'));
-        // Il cambio fonte ricostruisce la lista articoli, ma il contenitore
-        // scrollabile mantiene la vecchia posizione: se prima eravamo in
-        // fondo, con la nuova lista (più corta) restiamo "appesi" in fondo.
-        // Riportiamo sempre lo scroll in cima alla prima notizia.
-        const scrollEl = this.querySelector('.rss-scroll');
-        if (scrollEl) scrollEl.scrollTop = 0;
-        // Refresh immediato dei colori fonte (bypassa il throttle a tempo):
-        // così un cambio colore appena salvato nell'editor si vede subito
-        // interagendo col combobox, senza aspettare il timer in background.
-        this._loadSourceColors(true);
+    const filterBtn = this.querySelector('.rss-source-filter-btn');
+    const filterMenu = this.querySelector('.rss-source-filter-menu');
+    if (filterBtn && filterMenu) {
+      filterBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        filterMenu.hidden = !filterMenu.hidden;
       });
     }
+    // Click fuori dal menu -> chiudi. Un solo listener sul document per
+    // istanza (rimosso e riaggiunto a ogni _render per evitare che si
+    // accumulino più listener quando la card viene ri-renderizzata).
+    if (!this._boundCloseFilterMenu) {
+      this._boundCloseFilterMenu = (ev) => {
+        const wrap = this.querySelector('.rss-source-filter-wrap');
+        const menu = this.querySelector('.rss-source-filter-menu');
+        if (!wrap || !menu || menu.hidden) return;
+        if (!wrap.contains(ev.target)) menu.hidden = true;
+      };
+    }
+    document.removeEventListener('click', this._boundCloseFilterMenu);
+    document.addEventListener('click', this._boundCloseFilterMenu);
+  }
+
+  disconnectedCallback() {
+    if (this._boundCloseFilterMenu) document.removeEventListener('click', this._boundCloseFilterMenu);
+  }
+
+  // Selezione di una fonte dal menu a tendina personalizzato: aggiorna lo
+  // stato, ricostruisce la lista articoli, riporta lo scroll in cima e
+  // forza un refresh immediato dei colori fonte.
+  _selectSource(value) {
+    this._selectedSource = value;
+    const menu = this.querySelector('.rss-source-filter-menu');
+    if (menu) menu.hidden = true;
+    this._updateContent(this._articles || [], JSON.parse(this._lastIssuesJson || '[]'));
+    // Il cambio fonte ricostruisce la lista articoli, ma il contenitore
+    // scrollabile mantiene la vecchia posizione: se prima eravamo in
+    // fondo, con la nuova lista (più corta) restiamo "appesi" in fondo.
+    // Riportiamo sempre lo scroll in cima alla prima notizia.
+    const scrollEl = this.querySelector('.rss-scroll');
+    if (scrollEl) scrollEl.scrollTop = 0;
+    // Refresh immediato dei colori fonte (bypassa il throttle a tempo):
+    // così un cambio colore appena salvato nell'editor si vede subito
+    // interagendo col menu, senza aspettare il timer in background.
+    this._loadSourceColors(true);
   }
 
   _populateSourceFilter() {
-    const filterEl = this.querySelector('.rss-source-filter');
-    if (!filterEl) return;
+    const wrap = this.querySelector('.rss-source-filter-wrap');
+    if (!wrap) return;
     const t = this._t();
     // Build the option list from the *actual* RSS provider of each article
     // (e.g. "bbc", "ansa"), not from the HA sensor/source names configured
@@ -588,16 +633,40 @@ class RssNewsCard extends HTMLElement {
       if (name && !names.includes(name)) names.push(name);
     }
     names.sort((a, b) => a.localeCompare(b));
-    const prevValue = filterEl.value || this._selectedSource;
-    filterEl.innerHTML = [
-      `<option value="all">${t.filter_all}</option>`,
-      ...names.map(n => `<option value="${n}">${n}</option>`),
-    ].join('');
     // If the previously selected source no longer exists, fall back to "all"
-    if (prevValue !== 'all' && !names.includes(prevValue)) {
+    if (this._selectedSource !== 'all' && !names.includes(this._selectedSource)) {
       this._selectedSource = 'all';
     }
-    filterEl.value = this._selectedSource;
+    const colorFor = (name) => this._sourceColors[String(name).trim().toLowerCase()] || null;
+    const options = [
+      { value: 'all', label: t.filter_all, color: null },
+      ...names.map(n => ({ value: n, label: n, color: colorFor(n) })),
+    ];
+
+    // Bottone: mostra il pallino/etichetta della fonte attualmente selezionata
+    const selected = options.find(o => o.value === this._selectedSource) || options[0];
+    const btnDot = wrap.querySelector('.rss-source-filter-btn-dot');
+    const btnLabel = wrap.querySelector('.rss-source-filter-btn-label');
+    if (btnDot) btnDot.style.background = selected.color || 'var(--secondary-text-color)';
+    if (btnLabel) btnLabel.textContent = selected.label;
+
+    // Menu: ricostruito a ogni refresh dati, ma l'attributo "hidden" del
+    // contenitore non viene toccato, quindi se l'utente lo ha aperto resta
+    // aperto anche durante un aggiornamento periodico del sensore.
+    const menu = wrap.querySelector('.rss-source-filter-menu');
+    if (menu) {
+      menu.innerHTML = options.map(o => `
+        <div class="rss-source-filter-option${o.value === this._selectedSource ? ' selected' : ''}" data-value="${String(o.value).replace(/"/g, '&quot;')}">
+          <span class="rss-source-filter-dot" style="background:${o.color || 'var(--secondary-text-color)'};"></span>
+          <span>${o.label}</span>
+        </div>`).join('');
+      menu.querySelectorAll('.rss-source-filter-option').forEach(opt => {
+        opt.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          this._selectSource(opt.dataset.value);
+        });
+      });
+    }
   }
 
   _updateContent(articles, issues) {
