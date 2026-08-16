@@ -7,12 +7,16 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.12.0 · build 2026-08-16-18';
+const CARD_VERSION = 'v1.12.1 · build 2026-08-16-19';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
 const DEFAULT_ENTITY = 'sensor.news_aggregator';
 const DEFAULT_FEED_ADMIN_BASE_URL = 'http://192.168.1.249/news-aggregator/';
+// Ogni quanto la card ricontrolla i colori delle fonti sul server admin.
+// Basso abbastanza da riflettere in fretta una modifica fatta nell'editor,
+// alto abbastanza da non intasare il server a ogni aggiornamento sensore.
+const SOURCE_COLORS_REFRESH_MS = 60 * 1000;
 // Nome del file PHP di amministrazione fonti: resta interno al JS,
 // l'utente inserisce solo il percorso/cartella del server, non il file.
 const FEED_ADMIN_FILENAME = 'sources_admin.php';
@@ -204,7 +208,7 @@ class RssNewsCard extends HTMLElement {
     this._initialized = false;
     this._selectedSource = 'all';
     this._sourceColors = {};
-    this._sourceColorsLoadedFor = null;
+    this._sourceColorsFetchedAt = 0;
 
   }
 
@@ -254,14 +258,18 @@ class RssNewsCard extends HTMLElement {
     if (this._hass) {
       this._updateContent(this._articles || [], JSON.parse(this._lastIssuesJson || '[]'));
     }
-    // Colore per-fonte (badge categoria): caricato dal server admin fonti,
-    // solo se url/token sono configurati e sono cambiati rispetto all'ultimo
-    // caricamento (evita richieste ripetute a ogni setConfig).
+    // Colore per-fonte (badge categoria): caricato dal server admin fonti.
+    // _loadSourceColors() è auto-limitato nel tempo (vedi SOURCE_COLORS_REFRESH_MS).
     this._loadSourceColors();
   }
 
   set hass(hass) {
     this._hass = hass;
+    // Aggiornamento colori fonte: chiamata leggera e auto-limitata nel
+    // tempo, va fatta a ogni "tick" di hass (non solo quando cambia il
+    // sensore) altrimenti se il sensore aggiorna raramente il colore
+    // impostato lato server resterebbe non visto per molto più a lungo.
+    this._loadSourceColors();
     // Skip render if the single source sensor hasn't changed
     const st = hass.states[this._config.entity];
     const stateKey = st ? (this._config.entity + ':' + st.state + ':' + st.last_updated) : this._config.entity;
@@ -345,9 +353,14 @@ class RssNewsCard extends HTMLElement {
     const url = this._feedAdminFullUrl();
     const token = (this._config.feed_admin_token || '').trim();
     if (!url) return;
-    // Evita di rifare il fetch se url+token non sono cambiati dall'ultima volta
-    const key = url + '|' + token;
-    if (this._sourceColorsLoadedFor === key) return;
+    // Non blocchiamo per sempre in base a url/token (che restano invariati
+    // anche quando l'utente cambia solo un colore sul server): usiamo invece
+    // una soglia temporale, così la card si autoaggiorna da sola quando le
+    // fonti vengono modificate dall'editor, senza bisogno di ricaricare la
+    // pagina/dashboard.
+    const now = Date.now();
+    if (this._sourceColorsFetchedAt && (now - this._sourceColorsFetchedAt) < SOURCE_COLORS_REFRESH_MS) return;
+    this._sourceColorsFetchedAt = now; // segna il tentativo subito, evita richieste in parallelo
     try {
       const res = await fetch(url + (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token), {
         method: 'GET',
@@ -360,12 +373,12 @@ class RssNewsCard extends HTMLElement {
         if (s && s.name && s.color) map[String(s.name).trim().toLowerCase()] = s.color;
       }
       this._sourceColors = map;
-      this._sourceColorsLoadedFor = key;
       // Ricolora eventuali articoli già renderizzati
       if (this._hass) this._updateContent(this._articles || [], JSON.parse(this._lastIssuesJson || '[]'));
     } catch {
       // Nessuna connessione al server admin fonti: la card resta comunque
       // funzionante, semplicemente senza colori personalizzati per fonte.
+      // Il prossimo tentativo scatterà comunque dopo SOURCE_COLORS_REFRESH_MS.
     }
   }
 
