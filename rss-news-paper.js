@@ -29,8 +29,7 @@ const RSS_LOCALES = {
       card_title_color:  'Card title color',
       article_title_color: 'Article title color',
       desc_color:        'Description color',
-      sources:           'Sources (entity · name · color)',
-      add_source:        '+ Add source',
+      entity:            'Sensor entity',
       max_articles:      'Max articles',
       card_height:       'Card height (px)',
       show_source:       'Show category',
@@ -40,6 +39,13 @@ const RSS_LOCALES = {
       title_size:        'Article title font size (px)',
       desc_size:         'Description font size (px)',
       color_hint:        'Leave empty for theme default',
+      feed_admin_url:    'Feed admin endpoint URL',
+      feed_admin_token:  'Feed admin token',
+      feed_sources:      'RSS feed sources (server)',
+      feed_add:          '+ Add feed',
+      feed_loading:      'Loading feeds…',
+      feed_load_error:   'Could not load feeds',
+      feed_set_url_first:'Set the admin endpoint URL to manage feeds.',
     },
   },
   hu: {
@@ -60,8 +66,7 @@ const RSS_LOCALES = {
       card_title_color:    'Kártya cím színe',
       article_title_color: 'Cikkek cím színe',
       desc_color:          'Leírás színe',
-      sources:             'Források (entitás · név · szín)',
-      add_source:          '+ Forrás hozzáadása',
+      entity:              'Szenzor entitás',
       max_articles:        'Max cikkek száma',
       card_height:         'Kártya magassága (px)',
       show_source:         'Kategória látható',
@@ -71,6 +76,13 @@ const RSS_LOCALES = {
       title_size:          'Cím betűmérete (px)',
       desc_size:           'Leírás betűmérete (px)',
       color_hint:          'Üresen hagyva a téma alapszínét használja',
+      feed_admin_url:      'Feed admin végpont URL',
+      feed_admin_token:    'Feed admin token',
+      feed_sources:        'RSS források (szerver)',
+      feed_add:            '+ Forrás hozzáadása',
+      feed_loading:        'Források betöltése…',
+      feed_load_error:     'Nem sikerült betölteni a forrásokat',
+      feed_set_url_first:  'Add meg a végpont URL-jét a források kezeléséhez.',
     },
   },
   de: {
@@ -91,8 +103,7 @@ const RSS_LOCALES = {
       card_title_color:    'Farbe Kartentitel',
       article_title_color: 'Farbe Artikeltitel',
       desc_color:          'Farbe Beschreibung',
-      sources:             'Quellen (Entität · Name · Farbe)',
-      add_source:          '+ Quelle hinzufügen',
+      entity:              'Sensor-Entität',
       max_articles:        'Max. Artikel',
       card_height:         'Kartenhöhe (px)',
       show_source:         'Kategorie anzeigen',
@@ -102,6 +113,13 @@ const RSS_LOCALES = {
       title_size:          'Schriftgröße Artikeltitel (px)',
       desc_size:           'Schriftgröße Beschreibung (px)',
       color_hint:          'Leer lassen für Themenstandardfarbe',
+      feed_admin_url:      'Feed-Admin-Endpunkt-URL',
+      feed_admin_token:    'Feed-Admin-Token',
+      feed_sources:        'RSS-Quellen (Server)',
+      feed_add:            '+ Quelle hinzufügen',
+      feed_loading:        'Quellen werden geladen…',
+      feed_load_error:     'Quellen konnten nicht geladen werden',
+      feed_set_url_first:  'Admin-Endpunkt-URL festlegen, um Quellen zu verwalten.',
     },
   },
   it: {
@@ -122,8 +140,7 @@ const RSS_LOCALES = {
       card_title_color:    'Colore titolo card',
       article_title_color: 'Colore titolo articoli',
       desc_color:          'Colore descrizione',
-      sources:              'Fonti (entità · nome · colore)',
-      add_source:           '+ Aggiungi fonte',
+      entity:               'Entità sensore',
       max_articles:         'Numero massimo di articoli',
       card_height:          'Altezza card (px)',
       show_source:          'Mostra categoria',
@@ -133,6 +150,13 @@ const RSS_LOCALES = {
       title_size:           'Dimensione carattere titolo (px)',
       desc_size:            'Dimensione carattere descrizione (px)',
       color_hint:           'Lascia vuoto per il colore predefinito del tema',
+      feed_admin_url:       'URL endpoint amministrazione fonti',
+      feed_admin_token:     'Token amministrazione fonti',
+      feed_sources:         'Fonti RSS (server)',
+      feed_add:             '+ Aggiungi fonte RSS',
+      feed_loading:         'Caricamento fonti…',
+      feed_load_error:      'Impossibile caricare le fonti',
+      feed_set_url_first:   'Imposta l\'URL dell\'endpoint per gestire le fonti.',
     },
   },
 };
@@ -177,7 +201,7 @@ class RssNewsCard extends HTMLElement {
   static getStubConfig() {
     return {
       title: 'News',
-      sources: [{ entity: 'sensor.telex_rss', name: 'Telex', color: '#e63946' }],
+      entity: 'sensor.rss_news',
       max_articles: 10,
       card_height: 400,
       show_description: true,
@@ -193,12 +217,12 @@ class RssNewsCard extends HTMLElement {
   }
 
   setConfig(config) {
-    if (!config.sources || !Array.isArray(config.sources) || config.sources.length === 0) {
-      throw new Error('At least one source must be defined in the "sources" list.');
+    if (!config.entity || typeof config.entity !== 'string') {
+      throw new Error('You must define an "entity" (the single sensor aggregating all RSS sources).');
     }
     this._config = {
       title:            config.title || '',
-      sources:          config.sources,
+      entity:           config.entity,
       max_articles:     config.max_articles || 10,
       card_height:      config.card_height || 400,
       show_description: config.show_description !== false,
@@ -210,6 +234,8 @@ class RssNewsCard extends HTMLElement {
       card_title_color: config.card_title_color || '',
       article_title_color: config.article_title_color || '',
       desc_color:       config.desc_color || '',
+      feed_admin_url:   config.feed_admin_url || '',
+      feed_admin_token: config.feed_admin_token || '',
     };
     this._initialized = false;
     this._render();
@@ -221,11 +247,9 @@ class RssNewsCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    // Build a lightweight stateKey from all source sensors – skip render if nothing changed
-    const stateKey = this._config.sources.map(s => {
-      const st = hass.states[s.entity];
-      return st ? (s.entity + ':' + st.state + ':' + st.last_updated) : s.entity;
-    }).join('|');
+    // Skip render if the single source sensor hasn't changed
+    const st = hass.states[this._config.entity];
+    const stateKey = st ? (this._config.entity + ':' + st.state + ':' + st.last_updated) : this._config.entity;
     if (stateKey === this._lastStateKey && this._initialized) return;
     this._lastStateKey = stateKey;
     const newArticles = this._getArticles();
@@ -251,17 +275,15 @@ class RssNewsCard extends HTMLElement {
 
   _validateSources() {
     if (!this._hass) return [];
-    const issues = [];
-    for (const source of this._config.sources) {
-      if (!source.entity) { issues.push({ entity: '(empty)', name: source.name || '?', problem: 'missing_entity' }); continue; }
-      const state = this._hass.states[source.entity];
-      if (!state) { issues.push({ entity: source.entity, name: source.name || source.entity, problem: 'not_found' }); continue; }
-      if (state.state === 'unavailable' || state.state === 'unknown') { issues.push({ entity: source.entity, name: source.name || source.entity, problem: 'unavailable' }); continue; }
-      const articles = state.attributes.articles;
-      if (!Array.isArray(articles)) { issues.push({ entity: source.entity, name: source.name || source.entity, problem: 'no_articles_attribute' }); continue; }
-      if (articles.length === 0) { issues.push({ entity: source.entity, name: source.name || source.entity, problem: 'empty' }); }
-    }
-    return issues;
+    const entity = this._config.entity;
+    if (!entity) return [{ entity: '(empty)', name: '?', problem: 'missing_entity' }];
+    const state = this._hass.states[entity];
+    if (!state) return [{ entity, name: entity, problem: 'not_found' }];
+    if (state.state === 'unavailable' || state.state === 'unknown') return [{ entity, name: entity, problem: 'unavailable' }];
+    const articles = state.attributes.articles;
+    if (!Array.isArray(articles)) return [{ entity, name: entity, problem: 'no_articles_attribute' }];
+    if (articles.length === 0) return [{ entity, name: entity, problem: 'empty' }];
+    return [];
   }
 
   _renderDiagnostics(issues) {
@@ -288,15 +310,11 @@ class RssNewsCard extends HTMLElement {
 
   _getArticles() {
     if (!this._hass) return [];
-    let all = [];
-    for (const source of this._config.sources) {
-      const state = this._hass.states[source.entity];
-      if (!state) continue;
-      const articles = state.attributes.articles;
-      if (!Array.isArray(articles)) continue;
-      articles.forEach(a => all.push({ ...a, _sourceName: source.name || source.entity, _sourceColor: source.color || 'var(--primary-color)' }));
-    }
-    all.sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
+    const state = this._hass.states[this._config.entity];
+    if (!state) return [];
+    const articles = state.attributes.articles;
+    if (!Array.isArray(articles)) return [];
+    const all = [...articles].sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
     return all.slice(0, this._config.max_articles);
   }
 
@@ -309,9 +327,8 @@ class RssNewsCard extends HTMLElement {
       const label = String(topics[0]).trim();
       return label.charAt(0).toUpperCase() + label.slice(1);
     }
-    // Fallback: nome della fonte originale del feed, poi nome sorgente configurato
-    if (article.source) return article.source;
-    return article._sourceName;
+    // Fallback: nome della fonte originale del feed (es. "bbc", "ansa")
+    return article.source || '';
   }
 
   _resolveArticleImage(article) {
@@ -330,10 +347,8 @@ class RssNewsCard extends HTMLElement {
 
   _providerLabel(article) {
     // Nome del provider RSS originale (es. "BBC News", "Google News", "ANSA"),
-    // preso dal tag <source> del feed se presente, altrimenti dal nome
-    // della sorgente configurata nella card.
-    if (article.source && String(article.source).trim() !== '') return String(article.source).trim();
-    return article._sourceName;
+    // preso dal tag <source> del feed.
+    return article.source && String(article.source).trim() !== '' ? String(article.source).trim() : '';
   }
 
   _splitAggregatorTitle(article) {
@@ -402,7 +417,7 @@ class RssNewsCard extends HTMLElement {
       const showBothLabels = topic && provider && topic.toLowerCase() !== String(provider).toLowerCase();
       // Google News aggiunge " - Testata" in coda al titolo: lo separiamo
       // per mostrarlo in corsivo con un colore diverso dal resto del titolo.
-      const isAggregator = /google/i.test(String(provider || '')) || /google/i.test(String(a._sourceName || ''));
+      const isAggregator = /google/i.test(String(provider || ''));
       const { main: titleMain, publication } = isAggregator ? this._splitAggregatorTitle(a) : { main: a.title, publication: null };
       const mainTitleColor = this._isVisited(a.link) ? 'var(--disabled-text-color)' : (article_title_color || 'var(--primary-text-color)');
       const publicationColor = desc_color || 'var(--secondary-text-color)';
@@ -416,7 +431,7 @@ class RssNewsCard extends HTMLElement {
           ${show_original && a.title_original ? `<div style="font-size:${Math.max(10, title_font_size - 2)}px;font-style:italic;opacity:0.65;color:${desc_color || 'var(--secondary-text-color)'};line-height:1.3;white-space:normal;word-break:break-word;margin-bottom:4px;">${a.title_original}</div>` : ''}
           ${(show_source || show_date) ? `
             <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:4px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-              ${show_source ? `<span style="font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:${a._sourceColor};">${topic}</span>` : ''}
+              ${show_source ? `<span style="font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--primary-color);">${topic}</span>` : ''}
               ${show_source && showBothLabels ? `<span style="opacity:0.4;">·</span><span style="font-weight:600;">${provider}</span>` : ''}
               ${(show_source && show_date) ? `<span style="opacity:0.4;">·</span>` : ''}
               ${show_date ? `<span>${this._formatDate(a.pubDate)}</span>` : ''}
@@ -561,17 +576,11 @@ class RssNewsCardEditor extends HTMLElement {
   }
 
   setConfig(config) {
-    const prevSourceCount = (this._config.sources || []).length;
     this._config = { ...config };
     if (!this._rendered) {
       this._renderShell();
     } else {
       this._syncFields();
-      // Only re-render sources if count changed (add/remove), not on field edits
-      const newSourceCount = (this._config.sources || []).length;
-      if (newSourceCount !== prevSourceCount) {
-        this._renderSources();
-      }
     }
   }
 
@@ -603,6 +612,9 @@ class RssNewsCardEditor extends HTMLElement {
         .rss-src-row input{width:auto!important;}
         .rss-add{margin-top:6px;padding:4px 12px;cursor:pointer;background:var(--primary-color);color:white;border:none;border-radius:4px;}
         .rss-del{padding:2px 8px;cursor:pointer;border:1px solid var(--divider-color);border-radius:4px;background:transparent;color:var(--primary-text-color);}
+        .rss-save{padding:2px 8px;cursor:pointer;border:1px solid var(--primary-color);border-radius:4px;background:transparent;color:var(--primary-color);flex-shrink:0;}
+        .rss-feed-msg{font-size:12px;opacity:0.7;padding:4px 0;}
+        .rss-feed-msg.error{color:var(--error-color,#f44336);opacity:1;}
         .rss-toggle-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--divider-color);}
         .rss-toggle-row label{margin:0;font-size:13px;color:var(--primary-text-color);}
         .rss-toggle{position:relative;width:36px;height:20px;flex-shrink:0;}
@@ -616,9 +628,29 @@ class RssNewsCardEditor extends HTMLElement {
         <label>${t.ed.card_title}</label>
         <input type="text" id="ed-title" value="${c.title || ''}"/>
 
-        <label>${t.ed.sources}</label>
-        <div id="ed-sources"></div>
-        <button class="rss-add" id="ed-add">${t.ed.add_source}</button>
+        <label>${t.ed.entity}</label>
+        <input type="text" id="ed-entity" placeholder="sensor.rss_news" value="${c.entity || ''}"/>
+
+        <div style="margin-top:18px;padding-top:12px;border-top:1px solid var(--divider-color);">
+          <label>${t.ed.feed_admin_url}</label>
+          <input type="text" id="ed-feed-admin-url" placeholder="https://server2.local/rss/sources_admin.php" value="${c.feed_admin_url || ''}"/>
+
+          <label>${t.ed.feed_admin_token}</label>
+          <input type="text" id="ed-feed-admin-token" placeholder="token" value="${c.feed_admin_token || ''}"/>
+
+          <label style="margin-top:10px;">${t.ed.feed_sources}</label>
+          <div id="ed-feed-sources"></div>
+          <div class="rss-src-row" style="margin-top:8px;flex-wrap:wrap;">
+            <input type="text" id="feed-new-name" placeholder="nome" style="flex:1 1 90px;min-width:0;"/>
+            <input type="text" id="feed-new-url" placeholder="https://…/feed" style="flex:2 1 140px;min-width:0;"/>
+            <select id="feed-new-type" style="flex-shrink:0;">
+              <option value="standard">standard</option>
+              <option value="google_news">google_news</option>
+            </select>
+            <input type="number" id="feed-new-max" placeholder="max" value="15" style="width:56px;flex-shrink:0;"/>
+            <button class="rss-add" id="feed-new-add">${t.ed.feed_add}</button>
+          </div>
+        </div>
 
         <label>${t.ed.max_articles}</label>
         <input type="number" id="ed-max" min="1" max="50" value="${c.max_articles || 10}"/>
@@ -691,10 +723,10 @@ class RssNewsCardEditor extends HTMLElement {
         </div>
       </div>`;
 
-    this._renderSources();
     this._attachListeners();
     // Sync color previews after DOM is ready
     requestAnimationFrame(() => this._syncColorPreviews());
+    this._loadFeedSources();
   }
 
   _syncColorPreviews() {
@@ -727,47 +759,6 @@ class RssNewsCardEditor extends HTMLElement {
     syncPreview('#prev-card-title-color',    c.card_title_color,    '--primary-text-color');
     syncPreview('#prev-article-title-color', c.article_title_color, '--primary-text-color');
     syncPreview('#prev-desc-color',          c.desc_color,          '--secondary-text-color');
-  }
-
-  _renderSources() {
-    const container = this.querySelector('#ed-sources');
-    if (!container) return;
-    const sources = this._config.sources || [];
-    container.innerHTML = sources.map((s, i) => `
-      <div class="rss-src-row" data-idx="${i}">
-        <input type="text" style="flex:1;min-width:0;" placeholder="sensor.telex_rss" data-field="entity" value="${s.entity || ''}"/>
-        <input type="text" style="width:80px;flex-shrink:0;" placeholder="Name" data-field="name" value="${s.name || ''}"/>
-        <label style="position:relative;width:32px;height:28px;flex-shrink:0;cursor:pointer;border-radius:4px;overflow:hidden;border:1px solid var(--divider-color);">
-          <div style="position:absolute;inset:0;background:${s.color || '#0077cc'};pointer-events:none;" class="rss-color-preview-${i}"></div>
-          <input type="color" data-field="color" value="${s.color || '#0077cc'}" style="position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer;"/>
-        </label>
-        <button class="rss-del" data-idx="${i}">✕</button>
-      </div>`).join('');
-
-    container.querySelectorAll('input').forEach(input => {
-      input.addEventListener('input', () => {
-        const row = input.closest('.rss-src-row');
-        const idx = parseInt(row.dataset.idx);
-        const field = input.dataset.field;
-        const sources = [...(this._config.sources || [])];
-        sources[idx] = { ...sources[idx], [field]: input.value };
-        this._upd('sources', sources);
-        // Update color preview div live
-        if (field === 'color') {
-          const preview = row.querySelector('.rss-color-preview-' + idx);
-          if (preview) preview.style.background = input.value;
-        }
-      });
-    });
-
-    container.querySelectorAll('.rss-del').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const idx = parseInt(btn.dataset.idx);
-        const sources = (this._config.sources || []).filter((_, i) => i !== idx);
-        this._upd('sources', sources);
-        this._renderSources();
-      });
-    });
   }
 
   _attachListeners() {
@@ -823,13 +814,136 @@ class RssNewsCardEditor extends HTMLElement {
     bindChk('#tog-desc',   'show_description');
     bindChk('#tog-original', 'show_original');
 
-    const addBtn = this.querySelector('#ed-add');
-    if (addBtn) {
-      addBtn.addEventListener('click', () => {
-        const sources = [...(this._config.sources || []), { entity: '', name: '', color: '#0077cc' }];
-        this._upd('sources', sources);
-        this._renderSources();
+    bind('#ed-entity', 'entity');
+
+    // ─ Fonti RSS lato server (config.php via sources_admin.php) ─
+    const feedUrlEl = this.querySelector('#ed-feed-admin-url');
+    const feedTokenEl = this.querySelector('#ed-feed-admin-token');
+    if (feedUrlEl) {
+      feedUrlEl.addEventListener('change', () => {
+        this._upd('feed_admin_url', feedUrlEl.value.trim());
+        this._loadFeedSources();
       });
+    }
+    if (feedTokenEl) {
+      feedTokenEl.addEventListener('change', () => {
+        this._upd('feed_admin_token', feedTokenEl.value.trim());
+        this._loadFeedSources();
+      });
+    }
+
+    const feedAddBtn = this.querySelector('#feed-new-add');
+    if (feedAddBtn) {
+      feedAddBtn.addEventListener('click', () => this._addFeedSource());
+    }
+  }
+
+  // ─── Fonti RSS lato server: fetch helper ─────────────────────────────────
+  async _feedApi(body) {
+    const url = (this._config.feed_admin_url || '').trim();
+    const token = (this._config.feed_admin_token || '').trim();
+    if (!url) throw new Error(this._t().ed.feed_set_url_first);
+    const opts = body
+      ? { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-API-Token': token }, body: JSON.stringify(body) }
+      : { method: 'GET', headers: { 'X-API-Token': token } };
+    const res = await fetch(url, opts);
+    let data;
+    try { data = await res.json(); } catch { throw new Error('Risposta non JSON dal server (' + res.status + ')'); }
+    if (!res.ok || !data.ok) throw new Error(data.error || ('HTTP ' + res.status));
+    return data;
+  }
+
+  async _loadFeedSources() {
+    const container = this.querySelector('#ed-feed-sources');
+    if (!container) return;
+    const t = this._t();
+    if (!(this._config.feed_admin_url || '').trim()) {
+      container.innerHTML = `<div class="rss-feed-msg">${t.ed.feed_set_url_first}</div>`;
+      return;
+    }
+    container.innerHTML = `<div class="rss-feed-msg">${t.ed.feed_loading}</div>`;
+    try {
+      const data = await this._feedApi(null);
+      this._renderFeedSourcesList(data.sources || []);
+    } catch (e) {
+      container.innerHTML = `<div class="rss-feed-msg error">${t.ed.feed_load_error}: ${e.message}</div>`;
+    }
+  }
+
+  _renderFeedSourcesList(list) {
+    const container = this.querySelector('#ed-feed-sources');
+    if (!container) return;
+    if (list.length === 0) {
+      container.innerHTML = `<div class="rss-feed-msg">—</div>`;
+      return;
+    }
+    container.innerHTML = list.map(f => `
+      <div class="rss-src-row" data-feed-id="${f.id}" style="flex-wrap:wrap;">
+        <input type="text" data-field="name" value="${(f.name || '').replace(/"/g, '&quot;')}" style="flex:1 1 90px;min-width:0;"/>
+        <input type="text" data-field="url" value="${(f.url || '').replace(/"/g, '&quot;')}" style="flex:2 1 140px;min-width:0;"/>
+        <select data-field="type" style="flex-shrink:0;">
+          <option value="standard" ${f.type === 'standard' ? 'selected' : ''}>standard</option>
+          <option value="google_news" ${f.type === 'google_news' ? 'selected' : ''}>google_news</option>
+        </select>
+        <input type="number" data-field="max_items" value="${f.max_items ?? 15}" style="width:56px;flex-shrink:0;"/>
+        <button class="rss-save" data-feed-id="${f.id}">💾</button>
+        <button class="rss-del" data-feed-id="${f.id}">✕</button>
+      </div>`).join('');
+
+    container.querySelectorAll('.rss-save').forEach(btn => {
+      btn.addEventListener('click', () => this._saveFeedSource(btn.dataset.feedId, btn.closest('.rss-src-row')));
+    });
+    container.querySelectorAll('.rss-del').forEach(btn => {
+      btn.addEventListener('click', () => this._deleteFeedSource(btn.dataset.feedId));
+    });
+  }
+
+  _readFeedRow(row) {
+    return {
+      name: row.querySelector('[data-field="name"]').value.trim(),
+      url: row.querySelector('[data-field="url"]').value.trim(),
+      type: row.querySelector('[data-field="type"]').value,
+      max_items: parseInt(row.querySelector('[data-field="max_items"]').value, 10) || 15,
+    };
+  }
+
+  async _addFeedSource() {
+    const name = this.querySelector('#feed-new-name');
+    const url = this.querySelector('#feed-new-url');
+    const type = this.querySelector('#feed-new-type');
+    const max = this.querySelector('#feed-new-max');
+    const source = {
+      name: name.value.trim(),
+      url: url.value.trim(),
+      type: type.value,
+      max_items: parseInt(max.value, 10) || 15,
+    };
+    try {
+      await this._feedApi({ action: 'add', source });
+      name.value = ''; url.value = ''; max.value = '15'; type.value = 'standard';
+      this._loadFeedSources();
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  async _saveFeedSource(id, row) {
+    try {
+      const source = this._readFeedRow(row);
+      await this._feedApi({ action: 'edit', id: parseInt(id, 10), source });
+      this._loadFeedSources();
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  async _deleteFeedSource(id) {
+    if (!confirm('Eliminare questa fonte RSS dal server?')) return;
+    try {
+      await this._feedApi({ action: 'delete', id: parseInt(id, 10) });
+      this._loadFeedSources();
+    } catch (e) {
+      alert(e.message);
     }
   }
 
@@ -838,6 +952,7 @@ class RssNewsCardEditor extends HTMLElement {
     const set = (id, val) => { const el = this.querySelector(id); if (el && document.activeElement !== el) el.value = val ?? ''; };
     const setChk = (id, val) => { const el = this.querySelector(id); if (el) el.checked = !!val; };
     set('#ed-title',     c.title);
+    set('#ed-entity',    c.entity);
     set('#ed-max',       c.max_articles);
     set('#ed-height',    c.card_height);
     set('#ed-titlesize', c.title_font_size);
@@ -845,6 +960,8 @@ class RssNewsCardEditor extends HTMLElement {
     set('#ed-card-title-color-text',    c.card_title_color);
     set('#ed-article-title-color-text', c.article_title_color);
     set('#ed-desc-color-text',          c.desc_color);
+    set('#ed-feed-admin-url',           c.feed_admin_url);
+    set('#ed-feed-admin-token',         c.feed_admin_token);
     setChk('#tog-source', c.show_source !== false);
     setChk('#tog-date',   c.show_date !== false);
     setChk('#tog-desc',   c.show_description !== false);
