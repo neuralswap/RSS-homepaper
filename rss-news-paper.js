@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.11.2 · build 2026-08-16-17';
+const CARD_VERSION = 'v1.12.0 · build 2026-08-16-18';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -51,6 +51,7 @@ const RSS_LOCALES = {
       feed_admin_token:  'Feed admin token',
       feed_sources:      'RSS feed sources (server)',
       feed_add:          '+ Add feed',
+      feed_color:        'Source color (used for the category badge)',
       feed_loading:      'Loading feeds…',
       feed_load_error:   'Could not load feeds',
       feed_set_url_first:'Set the admin endpoint URL to manage feeds.',
@@ -88,6 +89,7 @@ const RSS_LOCALES = {
       feed_admin_token:    'Feed admin token',
       feed_sources:        'RSS források (szerver)',
       feed_add:            '+ Forrás hozzáadása',
+      feed_color:          'Forrás színe (a kategória jelöléséhez)',
       feed_loading:        'Források betöltése…',
       feed_load_error:     'Nem sikerült betölteni a forrásokat',
       feed_set_url_first:  'Add meg a végpont URL-jét a források kezeléséhez.',
@@ -125,6 +127,7 @@ const RSS_LOCALES = {
       feed_admin_token:    'Feed-Admin-Token',
       feed_sources:        'RSS-Quellen (Server)',
       feed_add:            '+ Quelle hinzufügen',
+      feed_color:          'Quellfarbe (für das Kategorie-Label)',
       feed_loading:        'Quellen werden geladen…',
       feed_load_error:     'Quellen konnten nicht geladen werden',
       feed_set_url_first:  'Admin-Endpunkt-URL festlegen, um Quellen zu verwalten.',
@@ -162,6 +165,7 @@ const RSS_LOCALES = {
       feed_admin_token:     'Token amministrazione fonti',
       feed_sources:         'Fonti RSS (server)',
       feed_add:             '+ Aggiungi fonte RSS',
+      feed_color:           "Colore della fonte (usato per l'etichetta categoria)",
       feed_loading:         'Caricamento fonti…',
       feed_load_error:      'Impossibile caricare le fonti',
       feed_set_url_first:   'Imposta l\'URL dell\'endpoint per gestire le fonti.',
@@ -199,6 +203,8 @@ class RssNewsCard extends HTMLElement {
     this._lastStateKey = '';
     this._initialized = false;
     this._selectedSource = 'all';
+    this._sourceColors = {};
+    this._sourceColorsLoadedFor = null;
 
   }
 
@@ -248,6 +254,10 @@ class RssNewsCard extends HTMLElement {
     if (this._hass) {
       this._updateContent(this._articles || [], JSON.parse(this._lastIssuesJson || '[]'));
     }
+    // Colore per-fonte (badge categoria): caricato dal server admin fonti,
+    // solo se url/token sono configurati e sono cambiati rispetto all'ultimo
+    // caricamento (evita richieste ripetute a ogni setConfig).
+    this._loadSourceColors();
   }
 
   set hass(hass) {
@@ -321,6 +331,47 @@ class RssNewsCard extends HTMLElement {
     if (!Array.isArray(articles)) return [];
     const all = [...articles].sort((a, b) => new Date(b.pubDate) - new Date(a.pubDate));
     return all.slice(0, this._config.max_articles);
+  }
+
+  _feedAdminFullUrl() {
+    let base = (this._config.feed_admin_url || DEFAULT_FEED_ADMIN_BASE_URL || '').trim();
+    if (!base) return '';
+    base = base.replace(/sources_admin\.php.*$/i, '');
+    if (!base.endsWith('/')) base += '/';
+    return base + 'sources_admin.php';
+  }
+
+  async _loadSourceColors() {
+    const url = this._feedAdminFullUrl();
+    const token = (this._config.feed_admin_token || '').trim();
+    if (!url) return;
+    // Evita di rifare il fetch se url+token non sono cambiati dall'ultima volta
+    const key = url + '|' + token;
+    if (this._sourceColorsLoadedFor === key) return;
+    try {
+      const res = await fetch(url + (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token), {
+        method: 'GET',
+        headers: { 'X-API-Token': token },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) return; // silenzioso: la card mostra comunque il colore di default
+      const map = {};
+      for (const s of (data.sources || [])) {
+        if (s && s.name && s.color) map[String(s.name).trim().toLowerCase()] = s.color;
+      }
+      this._sourceColors = map;
+      this._sourceColorsLoadedFor = key;
+      // Ricolora eventuali articoli già renderizzati
+      if (this._hass) this._updateContent(this._articles || [], JSON.parse(this._lastIssuesJson || '[]'));
+    } catch {
+      // Nessuna connessione al server admin fonti: la card resta comunque
+      // funzionante, semplicemente senza colori personalizzati per fonte.
+    }
+  }
+
+  _categoryColor(article) {
+    const provider = String(this._providerLabel(article) || '').trim().toLowerCase();
+    return (provider && this._sourceColors[provider]) || 'var(--primary-color)';
   }
 
   _topicLabel(article) {
@@ -436,7 +487,7 @@ class RssNewsCard extends HTMLElement {
           ${show_original && a.title_original ? `<div style="font-size:${Math.max(10, title_font_size - 2)}px;font-style:italic;opacity:0.65;color:${desc_color || 'var(--secondary-text-color)'};line-height:1.3;white-space:normal;word-break:break-word;margin-bottom:4px;">${a.title_original}</div>` : ''}
           ${(show_source || show_date) ? `
             <div style="font-size:11px;color:var(--secondary-text-color);margin-bottom:4px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-              ${show_source ? `<span style="font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--primary-color);">${topic}</span>` : ''}
+              ${show_source ? `<span style="font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:${this._categoryColor(a)};">${topic}</span>` : ''}
               ${show_source && showBothLabels ? `<span style="opacity:0.4;">·</span><span style="font-weight:600;">${provider}</span>` : ''}
               ${(show_source && show_date) ? `<span style="opacity:0.4;">·</span>` : ''}
               ${show_date ? `<span>${this._formatDate(a.pubDate)}</span>` : ''}
@@ -670,6 +721,7 @@ class RssNewsCardEditor extends HTMLElement {
               <option value="google_news">google_news</option>
             </select>
             <input type="number" id="feed-new-max" placeholder="max" value="15" style="width:56px;flex-shrink:0;"/>
+            <input type="color" id="feed-new-color" value="#1a73e8" title="${t.ed.feed_color}" style="width:36px;height:32px;padding:2px;flex-shrink:0;"/>
             <button class="rss-add" id="feed-new-add">${t.ed.feed_add}</button>
           </div>
         </div>
@@ -910,6 +962,7 @@ class RssNewsCardEditor extends HTMLElement {
   _renderFeedSourcesList(list) {
     const container = this.querySelector('#ed-feed-sources');
     if (!container) return;
+    const t = this._t();
     if (list.length === 0) {
       container.innerHTML = `<div class="rss-feed-msg">—</div>`;
       return;
@@ -923,6 +976,7 @@ class RssNewsCardEditor extends HTMLElement {
           <option value="google_news" ${f.type === 'google_news' ? 'selected' : ''}>google_news</option>
         </select>
         <input type="number" data-field="max_items" value="${f.max_items ?? 15}" style="width:56px;flex-shrink:0;"/>
+        <input type="color" data-field="color" value="${(f.color && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(f.color)) ? f.color : '#1a73e8'}" title="${t.ed.feed_color}" style="width:36px;height:32px;padding:2px;flex-shrink:0;"/>
         <button class="rss-save" data-feed-id="${f.id}">💾</button>
         <button class="rss-del" data-feed-id="${f.id}">✕</button>
       </div>`).join('');
@@ -941,6 +995,7 @@ class RssNewsCardEditor extends HTMLElement {
       url: row.querySelector('[data-field="url"]').value.trim(),
       type: row.querySelector('[data-field="type"]').value,
       max_items: parseInt(row.querySelector('[data-field="max_items"]').value, 10) || 15,
+      color: row.querySelector('[data-field="color"]').value.trim(),
     };
   }
 
@@ -949,15 +1004,17 @@ class RssNewsCardEditor extends HTMLElement {
     const url = this.querySelector('#feed-new-url');
     const type = this.querySelector('#feed-new-type');
     const max = this.querySelector('#feed-new-max');
+    const color = this.querySelector('#feed-new-color');
     const source = {
       name: name.value.trim(),
       url: url.value.trim(),
       type: type.value,
       max_items: parseInt(max.value, 10) || 15,
+      color: color.value.trim(),
     };
     try {
       await this._feedApi({ action: 'add', source });
-      name.value = ''; url.value = ''; max.value = '15'; type.value = 'standard';
+      name.value = ''; url.value = ''; max.value = '15'; type.value = 'standard'; color.value = '#1a73e8';
       this._loadFeedSources();
     } catch (e) {
       alert(e.message);
