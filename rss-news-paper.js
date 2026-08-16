@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.14.0 · build 2026-08-16-23';
+const CARD_VERSION = 'v1.15.0 · build 2026-08-16-24';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -20,6 +20,16 @@ const SOURCE_COLORS_REFRESH_MS = 60 * 1000;
 // Nome del file PHP di amministrazione fonti: resta interno al JS,
 // l'utente inserisce solo il percorso/cartella del server, non il file.
 const FEED_ADMIN_FILENAME = 'sources_admin.php';
+// Endpoint dedicato ai pattern bloccati (long-press su una notizia -> popup
+// "Blocca le notizie da questo percorso"). Sta nella stessa cartella
+// dell'endpoint fonti, quindi riusa lo stesso feed_admin_url/token della card.
+const BLOCK_PATHS_FILENAME = 'block_paths.php';
+// Quanto tenere premuto prima che scatti il long-press (ms). Sotto questa
+// soglia il gesto viene trattato come un normale tap/click che apre l'articolo.
+const LONG_PRESS_MS = 550;
+// Se il dito/puntatore si sposta più di questi px durante la pressione, è
+// uno scroll e non un long-press: annulliamo il timer.
+const LONG_PRESS_MOVE_TOLERANCE = 10;
 
 // ─── Localizations ────────────────────────────────────────────────────────────
 const RSS_LOCALES = {
@@ -517,6 +527,115 @@ class RssNewsCard extends HTMLElement {
     }).join('');
   }
 
+  // Ricava dal link dell'articolo un "pattern" ragionevole da proporre per
+  // il blocco: il primo segmento di percorso dopo il dominio (es.
+  // "https://www.spaziogames.it/articoli/xyz" -> "/articoli/"). È lo stesso
+  // tipo di sottostringa che rebuild_cache.php confronta con stripos(), non
+  // serve altro. Se l'URL non ha un path riconoscibile, ricade sull'intero
+  // pathname.
+  _extractBlockPattern(url) {
+    try {
+      const u = new URL(url);
+      const m = u.pathname.match(/^\/[^\/]+\//);
+      const pattern = m ? m[0] : (u.pathname || '/');
+      return { pattern, display: u.hostname + pattern };
+    } catch {
+      return { pattern: url, display: url };
+    }
+  }
+
+  _blockPathsAdminFullUrl() {
+    let base = (this._config.feed_admin_url || '').trim();
+    if (!base) return '';
+    base = base
+      .replace(new RegExp(FEED_ADMIN_FILENAME.replace('.', '\\.') + '/?$'), '')
+      .replace(new RegExp(BLOCK_PATHS_FILENAME.replace('.', '\\.') + '/?$'), '');
+    if (!/\/$/.test(base)) base += '/';
+    return base + BLOCK_PATHS_FILENAME;
+  }
+
+  async _blockPath(pattern) {
+    const baseUrl = this._blockPathsAdminFullUrl();
+    const token = (this._config.feed_admin_token || '').trim();
+    if (!baseUrl) throw new Error(this._t().ed.feed_set_url_first);
+    const url = baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-API-Token': token },
+      body: JSON.stringify({ action: 'add', pattern, note: 'Bloccato con long-press dalla card' }),
+    });
+    let data;
+    try { data = await res.json(); } catch { throw new Error('Risposta non JSON dal server (' + res.status + ')'); }
+    if (!res.ok || !data.ok) throw new Error(data.error || ('HTTP ' + res.status));
+    return data;
+  }
+
+  // Toglie subito dalla vista corrente gli articoli il cui link contiene il
+  // pattern appena bloccato: feedback immediato in attesa che il prossimo
+  // rebuild_cache.php (server) li escluda per davvero dalla cache.
+  _removeArticlesMatchingPattern(pattern) {
+    const artEl = this.querySelector('.rss-articles');
+    if (!artEl) return;
+    artEl.querySelectorAll('.rss-article-row').forEach(row => {
+      if ((row.dataset.rssUrl || '').includes(pattern)) row.remove();
+    });
+  }
+
+  _ensureBlockModalStyles() {
+    if (document.getElementById('rss-block-modal-style')) return;
+    const style = document.createElement('style');
+    style.id = 'rss-block-modal-style';
+    style.textContent = `
+      .rss-block-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px;}
+      .rss-block-box{background:var(--card-background-color,#1c1c1c);color:var(--primary-text-color,#fff);border-radius:12px;padding:20px;max-width:340px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,0.4);}
+      .rss-block-path{font-family:monospace;font-size:13px;background:var(--secondary-background-color,rgba(255,255,255,0.08));border-radius:6px;padding:8px 10px;margin-bottom:12px;word-break:break-all;}
+      .rss-block-msg{font-size:14px;line-height:1.4;margin-bottom:18px;}
+      .rss-block-actions{display:flex;gap:10px;justify-content:flex-end;}
+      .rss-block-actions button{border:none;border-radius:8px;padding:9px 16px;font-size:14px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+      .rss-block-cancel{background:transparent;color:var(--secondary-text-color,#aaa);}
+      .rss-block-cancel:hover{background:var(--secondary-background-color,rgba(255,255,255,0.08));}
+      .rss-block-confirm{background:var(--error-color,#db4437);color:#fff;}
+      .rss-block-confirm:disabled{opacity:0.6;cursor:default;}
+    `;
+    document.head.appendChild(style);
+  }
+
+  _showBlockPathModal(url) {
+    this._ensureBlockModalStyles();
+    const { pattern, display } = this._extractBlockPattern(url);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'rss-block-overlay';
+    overlay.innerHTML = `
+      <div class="rss-block-box">
+        <div class="rss-block-path">${display}</div>
+        <div class="rss-block-msg">Blocca le notizie da questo percorso? Non verranno più incluse nei prossimi aggiornamenti del feed.</div>
+        <div class="rss-block-actions">
+          <button type="button" class="rss-block-cancel">Annulla</button>
+          <button type="button" class="rss-block-confirm">Blocca</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', (ev) => { if (ev.target === overlay) close(); });
+    overlay.querySelector('.rss-block-cancel').addEventListener('click', close);
+    overlay.querySelector('.rss-block-confirm').addEventListener('click', async () => {
+      const btn = overlay.querySelector('.rss-block-confirm');
+      btn.disabled = true;
+      btn.textContent = '…';
+      try {
+        await this._blockPath(pattern);
+        this._removeArticlesMatchingPattern(pattern);
+        close();
+      } catch (e) {
+        alert(e.message);
+        btn.disabled = false;
+        btn.textContent = 'Blocca';
+      }
+    });
+  }
+
   _handleLinkClick(url) {
     // Android Companion App – native in-app browser
     if (window.externalApp?.openExternalUrl) {
@@ -742,7 +861,47 @@ class RssNewsCard extends HTMLElement {
       artEl.innerHTML = this._buildArticlesHtml(filteredArticles);
       // Attach click listeners – popup on desktop, in-app modal on mobile/companion app
       artEl.querySelectorAll('.rss-article-row').forEach(row => {
-        row.addEventListener('click', () => {
+        let lpTimer = null;
+        let longPressFired = false;
+        let startX = 0, startY = 0;
+
+        const clearLpTimer = () => {
+          if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
+        };
+
+        row.addEventListener('pointerdown', (ev) => {
+          longPressFired = false;
+          startX = ev.clientX; startY = ev.clientY;
+          clearLpTimer();
+          lpTimer = setTimeout(() => {
+            longPressFired = true;
+            lpTimer = null;
+            if (navigator.vibrate) navigator.vibrate(15);
+            const url = row.dataset.rssUrl;
+            if (url) this._showBlockPathModal(url);
+          }, LONG_PRESS_MS);
+        });
+        row.addEventListener('pointermove', (ev) => {
+          if (!lpTimer) return;
+          if (Math.abs(ev.clientX - startX) > LONG_PRESS_MOVE_TOLERANCE ||
+              Math.abs(ev.clientY - startY) > LONG_PRESS_MOVE_TOLERANCE) {
+            clearLpTimer();
+          }
+        });
+        row.addEventListener('pointerup', clearLpTimer);
+        row.addEventListener('pointercancel', clearLpTimer);
+        row.addEventListener('pointerleave', clearLpTimer);
+
+        row.addEventListener('click', (ev) => {
+          // Il long-press ha già aperto il popup di blocco: il click che
+          // segue al rilascio del dito va ignorato, altrimenti si aprirebbe
+          // anche l'articolo dietro al popup.
+          if (longPressFired) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            longPressFired = false;
+            return;
+          }
           const url = row.dataset.rssUrl;
           if (!url) return;
           this._markVisited(url);
