@@ -847,14 +847,22 @@ class RssNewsCardEditor extends HTMLElement {
   _feedAdminFullUrl() {
     let base = (this._config.feed_admin_url || DEFAULT_FEED_ADMIN_BASE_URL || '').trim();
     if (!base) return '';
+    // Se nel campo è rimasto salvato un URL "vecchio" che includeva già il
+    // nome del file (da configurazioni precedenti), lo togliamo per evitare
+    // di aggiungerlo due volte.
+    base = base.replace(new RegExp(FEED_ADMIN_FILENAME.replace('.', '\\.') + '/?$'), '');
     if (!/\/$/.test(base)) base += '/'; // assicura lo slash finale prima del nome file
     return base + FEED_ADMIN_FILENAME;
   }
 
   async _feedApi(body) {
-    const url = this._feedAdminFullUrl();
+    const baseUrl = this._feedAdminFullUrl();
     const token = (this._config.feed_admin_token || '').trim();
-    if (!url) throw new Error(this._t().ed.feed_set_url_first);
+    if (!baseUrl) throw new Error(this._t().ed.feed_set_url_first);
+    // Il token viene inviato sia come header che come query string: alcuni
+    // server (proxy/Apache con certe config) non inoltrano header HTTP
+    // personalizzati al PHP, quindi la query string è il fallback affidabile.
+    const url = baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
     const opts = body
       ? { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-API-Token': token }, body: JSON.stringify(body) }
       : { method: 'GET', headers: { 'X-API-Token': token } };
