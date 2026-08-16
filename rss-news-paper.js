@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.11.1 · build 2026-08-16-16';
+const CARD_VERSION = 'v1.11.2 · build 2026-08-16-17';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -499,6 +499,12 @@ class RssNewsCard extends HTMLElement {
       filterEl.addEventListener('change', () => {
         this._selectedSource = filterEl.value;
         this._updateContent(this._articles || [], JSON.parse(this._lastIssuesJson || '[]'));
+        // Il cambio fonte ricostruisce la lista articoli, ma il contenitore
+        // scrollabile mantiene la vecchia posizione: se prima eravamo in
+        // fondo, con la nuova lista (più corta) restiamo "appesi" in fondo.
+        // Riportiamo sempre lo scroll in cima alla prima notizia.
+        const scrollEl = this.querySelector('.rss-scroll');
+        if (scrollEl) scrollEl.scrollTop = 0;
       });
     }
   }
