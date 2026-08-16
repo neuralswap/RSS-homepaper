@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.11.0 · build 2026-08-16-15';
+const CARD_VERSION = 'v1.11.1 · build 2026-08-16-16';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -581,11 +581,20 @@ class RssNewsCardEditor extends HTMLElement {
   }
 
   setConfig(config) {
+    const prevUrl = this._config?.feed_admin_url;
+    const prevToken = this._config?.feed_admin_token;
     this._config = { ...config };
     if (!this._rendered) {
       this._renderShell();
     } else {
       this._syncFields();
+      // Se l'ordine hass/setConfig di HA ha fatto partire il primo
+      // _loadFeedSources() con config ancora vuota (token mancante),
+      // qui arriva la config "vera": se url/token sono cambiati
+      // rispetto a quella (eventualmente vuota) di prima, ricarichiamo.
+      if (config.feed_admin_url !== prevUrl || config.feed_admin_token !== prevToken) {
+        this._loadFeedSources();
+      }
     }
   }
 
