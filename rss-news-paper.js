@@ -708,7 +708,7 @@ class RssNewsCard extends HTMLElement {
           .rss-source-filter-btn-caret{flex-shrink:0;opacity:0.6;font-size:9px;}
           .rss-source-filter-menu{position:absolute;top:calc(100% + 4px);right:0;min-width:150px;max-width:min(240px,80vw);max-height:280px;overflow-y:auto;background:var(--card-background-color);border:1px solid var(--divider-color);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.35);z-index:20;padding:4px 0;}
           .rss-source-filter-menu[hidden]{display:none;}
-          .rss-source-filter-scroll-hint{position:sticky;bottom:4px;left:0;right:0;pointer-events:none;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s ease;}
+          .rss-source-filter-scroll-hint{position:sticky;bottom:4px;left:0;right:8px;pointer-events:none;display:flex;align-items:center;justify-content:flex-end;opacity:0;transition:opacity .15s ease;}
           .rss-source-filter-scroll-hint::after{content:'▾';display:flex;align-items:center;justify-content:center;width:32px;height:20px;border-radius:5px;background:rgba(255,255,255,0.55);color:#000;font-size:19px;font-weight:700;line-height:1;}
           .rss-source-filter-scroll-hint.visible{opacity:1;}
           .rss-source-filter-option{display:flex;align-items:center;gap:8px;padding:9px 12px;font-size:13px;color:var(--primary-text-color);cursor:pointer;-webkit-tap-highlight-color:transparent;}
