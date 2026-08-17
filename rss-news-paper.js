@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.15.2 · build 2026-08-16-26';
+const CARD_VERSION = 'v1.16.0 · build 2026-08-17-01';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -54,6 +54,7 @@ const RSS_LOCALES = {
       entity:            'Sensor entity',
       max_articles:      'Max articles',
       card_height:       'Card height (px)',
+      auto_height:       'Auto height (fill screen down to bottom)',
       show_source:       'Show category',
       show_date:         'Show date',
       show_desc:         'Show description',
@@ -92,6 +93,7 @@ const RSS_LOCALES = {
       entity:              'Szenzor entitás',
       max_articles:        'Max cikkek száma',
       card_height:         'Kártya magassága (px)',
+      auto_height:         'Automatikus magasság (kitölti a képernyőt)',
       show_source:         'Kategória látható',
       show_date:           'Dátum látható',
       show_desc:           'Leírás látható',
@@ -130,6 +132,7 @@ const RSS_LOCALES = {
       entity:              'Sensor-Entität',
       max_articles:        'Max. Artikel',
       card_height:         'Kartenhöhe (px)',
+      auto_height:         'Automatische Höhe (füllt den Bildschirm bis unten)',
       show_source:         'Kategorie anzeigen',
       show_date:           'Datum anzeigen',
       show_desc:           'Beschreibung anzeigen',
@@ -168,6 +171,7 @@ const RSS_LOCALES = {
       entity:               'Entità sensore',
       max_articles:         'Numero massimo di articoli',
       card_height:          'Altezza card (px)',
+      auto_height:          'Altezza automatica (fino al fondo pagina)',
       show_source:          'Mostra categoria',
       show_date:            'Mostra data',
       show_desc:            'Mostra descrizione',
@@ -240,6 +244,7 @@ class RssNewsCard extends HTMLElement {
       entity: DEFAULT_ENTITY,
       max_articles: 10,
       card_height: 400,
+      auto_height: false,
       show_description: true,
       show_source: true,
       show_date: true,
@@ -258,6 +263,11 @@ class RssNewsCard extends HTMLElement {
       entity:           (config.entity && typeof config.entity === 'string') ? config.entity : DEFAULT_ENTITY,
       max_articles:     config.max_articles || 10,
       card_height:      config.card_height || 400,
+      // Se true, ignora card_height e riempie automaticamente lo spazio
+      // verticale disponibile fino al fondo pagina (leggermente meno, vedi
+      // _applyAutoHeight). Default false per non cambiare il comportamento
+      // di chi ha già configurato la card con un'altezza fissa.
+      auto_height:      config.auto_height === true,
       show_description: config.show_description !== false,
       show_source:      config.show_source !== false,
       show_date:        config.show_date !== false,
@@ -763,10 +773,31 @@ class RssNewsCard extends HTMLElement {
     }
     document.removeEventListener('click', this._boundCloseFilterMenu);
     document.addEventListener('click', this._boundCloseFilterMenu);
+
+    // Ricalcola l'altezza automatica quando cambia lo spazio disponibile:
+    // rotazione schermo, ridimensionamento finestra su PC, apertura/
+    // chiusura della sidebar di Home Assistant (che in genere scatena
+    // comunque un resize della finestra). Stesso pattern bind-once di
+    // sopra: un solo listener per istanza, tolto e rimesso a ogni render.
+    if (!this._boundAutoHeight) {
+      this._boundAutoHeight = () => {
+        if (this._config.auto_height) this._applyAutoHeight();
+      };
+    }
+    window.removeEventListener('resize', this._boundAutoHeight);
+    window.addEventListener('resize', this._boundAutoHeight);
+    // Al primo render la posizione della card sulla pagina può non essere
+    // ancora definitiva (altre card/immagini sopra ancora in caricamento):
+    // un ricalcolo singolo poco dopo copre questo caso senza dover legare
+    // altri listener permanenti.
+    if (this._config.auto_height) {
+      setTimeout(() => this._applyAutoHeight(), 300);
+    }
   }
 
   disconnectedCallback() {
     if (this._boundCloseFilterMenu) document.removeEventListener('click', this._boundCloseFilterMenu);
+    if (this._boundAutoHeight) window.removeEventListener('resize', this._boundAutoHeight);
   }
 
   // Selezione di una fonte dal menu a tendina personalizzato: aggiorna lo
@@ -854,6 +885,26 @@ class RssNewsCard extends HTMLElement {
     hint.classList.toggle('visible', hasMoreBelow);
   }
 
+  // Calcola quanto spazio verticale resta tra la card e il fondo della
+  // finestra e lo usa come altezza dello scroll interno, invece di un
+  // valore fisso in px. Serve perché lo spazio disponibile cambia da
+  // dispositivo a dispositivo (PC vs cellulare, con/senza sidebar, con/senza
+  // altre card sopra) e un unico numero in px non va bene ovunque.
+  _applyAutoHeight() {
+    const scrollEl = this.querySelector('.rss-scroll');
+    if (!scrollEl) return;
+    const rect = scrollEl.getBoundingClientRect();
+    // Margine sotto per non incollare il bordo della card esattamente al
+    // fondo della finestra ("leggermente meno" richiesto): abbastanza per
+    // respirare su schermi piccoli, trascurabile su schermi grandi.
+    const bottomMargin = 16;
+    const available = window.innerHeight - rect.top - bottomMargin;
+    // Soglia minima: sotto questa la card diventerebbe inutilizzabile (es.
+    // se il layout non è ancora stabile al primo render e rect.top è 0).
+    const minHeight = 150;
+    scrollEl.style.height = Math.max(available, minHeight) + 'px';
+  }
+
   _updateContent(articles, issues) {
     if (!this._initialized) this._render();
     const { title, card_height, card_title_color } = this._config;
@@ -881,7 +932,13 @@ class RssNewsCard extends HTMLElement {
 
     // Update scroll height dynamically
     const scrollEl = this.querySelector('.rss-scroll');
-    if (scrollEl) scrollEl.style.height = (card_height || 400) + 'px';
+    if (scrollEl) {
+      if (this._config.auto_height) {
+        this._applyAutoHeight();
+      } else {
+        scrollEl.style.height = (card_height || 400) + 'px';
+      }
+    }
 
     this._populateSourceFilter();
     // Il taglio "Numero massimo di articoli" va applicato DOPO il filtro per
@@ -1072,7 +1129,15 @@ class RssNewsCardEditor extends HTMLElement {
         <input type="number" id="ed-max" min="1" max="50" value="${c.max_articles || 10}"/>
 
         <label>${t.ed.card_height}</label>
-        <input type="number" id="ed-height" min="100" max="2000" value="${c.card_height || 400}"/>
+        <input type="number" id="ed-height" min="100" max="2000" value="${c.card_height || 400}" ${c.auto_height ? 'disabled' : ''}/>
+
+        <div class="rss-toggle-row">
+          <label for="tog-auto-height">${t.ed.auto_height}</label>
+          <label class="rss-toggle">
+            <input type="checkbox" id="tog-auto-height" ${c.auto_height ? 'checked' : ''}/>
+            <span class="rss-slider"></span>
+          </label>
+        </div>
 
         <label>${t.ed.title_size}</label>
         <input type="number" id="ed-titlesize" min="10" max="30" value="${c.title_font_size || 15}"/>
@@ -1192,6 +1257,14 @@ class RssNewsCardEditor extends HTMLElement {
     bind('#ed-title',    'title');
     bind('#ed-max',      'max_articles',    v => parseInt(v) || 10);
     bind('#ed-height',   'card_height',     v => parseInt(v) || 400);
+    const autoHeightChk = this.querySelector('#tog-auto-height');
+    const heightInput = this.querySelector('#ed-height');
+    if (autoHeightChk) {
+      autoHeightChk.addEventListener('change', e => {
+        this._upd('auto_height', e.target.checked);
+        if (heightInput) heightInput.disabled = e.target.checked;
+      });
+    }
     bind('#ed-titlesize','title_font_size', v => parseInt(v) || 15);
     bind('#ed-descsize', 'desc_font_size',  v => parseInt(v) || 14);
     bind('#ed-card-title-color-text',    'card_title_color');
@@ -1402,6 +1475,9 @@ class RssNewsCardEditor extends HTMLElement {
     setChk('#tog-date',   c.show_date !== false);
     setChk('#tog-desc',   c.show_description !== false);
     setChk('#tog-original', c.show_original !== false);
+    setChk('#tog-auto-height', c.auto_height === true);
+    const heightInput = this.querySelector('#ed-height');
+    if (heightInput) heightInput.disabled = c.auto_height === true;
   }
 
   _upd(key, value) {
