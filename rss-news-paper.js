@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.17.0 · build 2026-08-18-05';
+const CARD_VERSION = 'v1.17.0 · build 2026-08-18-07';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -460,21 +460,22 @@ class RssNewsCard extends HTMLElement {
 
   async _loadSourceStats(force = false) {
     const url = this._sourceStatsUrl();
-    if (!url) return;
+    if (!url) { this._sourceStatsDebug = 'URL vuoto'; return; }
     const now = Date.now();
     if (!force && this._sourceStatsFetchedAt && (now - this._sourceStatsFetchedAt) < SOURCE_COLORS_REFRESH_MS) return;
     this._sourceStatsFetchedAt = now;
     try {
-      const res = await fetch(url + '?_=' + now); // cache-buster leggero
-      if (!res.ok) return;
+      const res = await fetch(url + '?_=' + now);
+      if (!res.ok) { this._sourceStatsDebug = 'HTTP ' + res.status + ' · ' + url; return; }
       const data = await res.json();
       if (data && typeof data === 'object') {
         this._sourceStats = data;
-        // Ripopola il menu se è già renderizzato, così i contatori appaiono subito.
-        if (this._initialized) this._populateSourceFilter();
+        this._sourceStatsDebug = 'OK · ' + Object.keys(data).length + ' fonti';
+      } else {
+        this._sourceStatsDebug = 'JSON non valido';
       }
-    } catch {
-      // Nessuna connessione o file non ancora generato: silenzioso.
+    } catch(e) {
+      this._sourceStatsDebug = 'Errore: ' + String(e);
     }
   }
 
@@ -784,13 +785,11 @@ class RssNewsCard extends HTMLElement {
     if (filterBtn && filterMenu) {
       filterBtn.addEventListener('click', async (ev) => {
         ev.stopPropagation();
-        const opening = filterMenu.hidden;
-        if (opening) {
-          // Carica stats fresche e ASPETTA che arrivino prima di aprire il
-          // menu: così i badge [scaricati/trovati] sono già presenti alla
-          // prima apertura, senza un secondo "lampeggio" di aggiornamento.
+        if (filterMenu.hidden) {
+          // Aspetta stats fresche prima di aprire: i badge sono già pronti
+          // alla prima apertura, senza lampeggio di aggiornamento successivo.
           await this._loadSourceStats(true);
-          this._populateSourceFilter(); // ricostruisce con dati aggiornati
+          this._populateSourceFilter();
           filterMenu.hidden = false;
           this._updateFilterScrollHint();
         } else {
@@ -895,7 +894,7 @@ class RssNewsCard extends HTMLElement {
     ghostNames.sort((a, b) => a.localeCompare(b));
 
     // Formatta il badge "[scaricati/trovati]" e il tooltip con l'ora.
-    // Lookup case-insensitive: "Birdmen" nel JSON corrisponde a "birdmen" negli articoli.
+    // Lookup case-insensitive: "Birdmen" nel JSON trova "birdmen" negli articoli.
     const statsBadge = (name) => {
       const nameLow = String(name).toLowerCase();
       const s = this._sourceStats[name]
@@ -941,7 +940,10 @@ class RssNewsCard extends HTMLElement {
     // aperto anche durante un aggiornamento periodico del sensore.
     const menu = wrap.querySelector('.rss-source-filter-menu');
     if (menu) {
-      menu.innerHTML = options.map(o => `
+      const _dbg = this._sourceStatsDebug || '(non caricato)';
+      const _keys = Object.keys(this._sourceStats);
+      const _debugLine = `<div style="font-size:9px;opacity:0.45;padding:2px 12px 4px;font-family:monospace;border-bottom:1px solid var(--divider-color);margin-bottom:2px;">stats: ${_dbg} · chiavi:[${_keys.join(',')}]</div>`;
+      menu.innerHTML = _debugLine + options.map(o => `
         <div class="rss-source-filter-option${o.value === this._selectedSource ? ' selected' : ''}${o.isGhost ? ' rss-source-ghost' : ''}"
              data-value="${String(o.value).replace(/"/g, '&quot;')}"
              ${o.title ? `title="${o.title.replace(/"/g, '&quot;')}"` : ''}>
