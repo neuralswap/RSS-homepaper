@@ -246,7 +246,6 @@ class RssNewsCard extends HTMLElement {
     return {
       title: 'News',
       entity: DEFAULT_ENTITY,
-      max_articles: 10,
       card_height: 400,
       auto_height: false,
       show_description: true,
@@ -265,7 +264,6 @@ class RssNewsCard extends HTMLElement {
     this._config = {
       title:            config.title || '',
       entity:           (config.entity && typeof config.entity === 'string') ? config.entity : DEFAULT_ENTITY,
-      max_articles:     config.max_articles || 10,
       card_height:      config.card_height || 400,
       // Se true, ignora card_height e riempie automaticamente lo spazio
       // verticale disponibile fino al fondo pagina (leggermente meno, vedi
@@ -1040,16 +1038,12 @@ class RssNewsCard extends HTMLElement {
     }
 
     this._populateSourceFilter();
-    // Il taglio "Numero massimo di articoli" va applicato DOPO il filtro per
-    // fonte: così "Tutte le fonti" mostra gli N più recenti in assoluto
-    // (comportamento invariato), ma selezionando una fonte specifica se ne
-    // vedono comunque fino a N articoli SUOI, invece di rischiare zero
-    // risultati perché quella fonte era stata esclusa dal taglio globale
-    // fatto su tutte le fonti insieme.
-    const bySource = this._selectedSource === 'all'
+    // Nessun limite: la card mostra tutti gli articoli disponibili (già
+    // filtrati per fonte, se selezionata). Il taglio "Numero massimo di
+    // articoli" è stato rimosso su richiesta: niente più cap artificiale.
+    const filteredArticles = this._selectedSource === 'all'
       ? articles
       : articles.filter(a => this._providerLabel(a) === this._selectedSource);
-    const filteredArticles = bySource.slice(0, this._config.max_articles);
 
     const diagEl = this.querySelector('.rss-diag');
     const artEl = this.querySelector('.rss-articles');
@@ -1218,14 +1212,10 @@ class RssNewsCardEditor extends HTMLElement {
               <option value="standard">standard</option>
               <option value="google_news">google_news</option>
             </select>
-            <input type="number" id="feed-new-max" placeholder="max" value="15" style="width:56px;flex-shrink:0;"/>
             <input type="color" id="feed-new-color" value="#1a73e8" title="${t.ed.feed_color}" style="width:36px;height:32px;padding:2px;flex-shrink:0;"/>
             <button class="rss-add" id="feed-new-add">${t.ed.feed_add}</button>
           </div>
         </div>
-
-        <label>${t.ed.max_articles}</label>
-        <input type="number" id="ed-max" min="1" max="50" value="${c.max_articles || 10}"/>
 
         <label>${t.ed.card_height}</label>
         <input type="number" id="ed-height" min="100" max="2000" value="${c.card_height || 400}" ${c.auto_height ? 'disabled' : ''}/>
@@ -1354,7 +1344,6 @@ class RssNewsCardEditor extends HTMLElement {
     };
 
     bind('#ed-title',    'title');
-    bind('#ed-max',      'max_articles',    v => parseInt(v) || 10);
     bind('#ed-height',   'card_height',     v => parseInt(v) || 400);
     const autoHeightChk = this.querySelector('#tog-auto-height');
     const heightInput = this.querySelector('#ed-height');
@@ -1489,7 +1478,6 @@ class RssNewsCardEditor extends HTMLElement {
           <option value="standard" ${f.type === 'standard' ? 'selected' : ''}>standard</option>
           <option value="google_news" ${f.type === 'google_news' ? 'selected' : ''}>google_news</option>
         </select>
-        <input type="number" data-field="max_items" value="${f.max_items ?? 15}" style="width:56px;flex-shrink:0;"/>
         <input type="color" data-field="color" value="${(f.color && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(f.color)) ? f.color : '#1a73e8'}" title="${t.ed.feed_color}" style="width:36px;height:32px;padding:2px;flex-shrink:0;"/>
         <button class="rss-save" data-feed-id="${f.id}">💾</button>
         <button class="rss-del" data-feed-id="${f.id}">✕</button>
@@ -1508,7 +1496,6 @@ class RssNewsCardEditor extends HTMLElement {
       name: row.querySelector('[data-field="name"]').value.trim(),
       url: row.querySelector('[data-field="url"]').value.trim(),
       type: row.querySelector('[data-field="type"]').value,
-      max_items: parseInt(row.querySelector('[data-field="max_items"]').value, 10) || 15,
       color: row.querySelector('[data-field="color"]').value.trim(),
     };
   }
@@ -1517,18 +1504,16 @@ class RssNewsCardEditor extends HTMLElement {
     const name = this.querySelector('#feed-new-name');
     const url = this.querySelector('#feed-new-url');
     const type = this.querySelector('#feed-new-type');
-    const max = this.querySelector('#feed-new-max');
     const color = this.querySelector('#feed-new-color');
     const source = {
       name: name.value.trim(),
       url: url.value.trim(),
       type: type.value,
-      max_items: parseInt(max.value, 10) || 15,
       color: color.value.trim(),
     };
     try {
       await this._feedApi({ action: 'add', source });
-      name.value = ''; url.value = ''; max.value = '15'; type.value = 'standard'; color.value = '#1a73e8';
+      name.value = ''; url.value = ''; type.value = 'standard'; color.value = '#1a73e8';
       this._loadFeedSources();
     } catch (e) {
       alert(e.message);
@@ -1561,7 +1546,6 @@ class RssNewsCardEditor extends HTMLElement {
     const setChk = (id, val) => { const el = this.querySelector(id); if (el) el.checked = !!val; };
     set('#ed-title',     c.title);
     set('#ed-entity',    c.entity);
-    set('#ed-max',       c.max_articles);
     set('#ed-height',    c.card_height);
     set('#ed-titlesize', c.title_font_size);
     set('#ed-descsize',  c.desc_font_size);
