@@ -951,10 +951,7 @@ class RssNewsCard extends HTMLElement {
     // aperto anche durante un aggiornamento periodico del sensore.
     const menu = wrap.querySelector('.rss-source-filter-menu');
     if (menu) {
-      const _dbg = this._sourceStatsDebug || '(non caricato)';
-      const _keys = Object.keys(this._sourceStats);
-      const _debugLine = `<div style="font-size:9px;opacity:0.45;padding:2px 12px 4px;font-family:monospace;border-bottom:1px solid var(--divider-color);margin-bottom:2px;">stats: ${_dbg} · chiavi:[${_keys.join(',')}]</div>`;
-      menu.innerHTML = _debugLine + options.map(o => `
+      menu.innerHTML = options.map(o => `
         <div class="rss-source-filter-option${o.value === this._selectedSource ? ' selected' : ''}${o.isGhost ? ' rss-source-ghost' : ''}"
              data-value="${String(o.value).replace(/"/g, '&quot;')}"
              ${o.title ? `title="${o.title.replace(/"/g, '&quot;')}"` : ''}>
