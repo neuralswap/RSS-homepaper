@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.16.0 · build 2026-08-17-01';
+const CARD_VERSION = 'v1.17.0 · build 2026-08-18-01';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -231,7 +231,11 @@ class RssNewsCard extends HTMLElement {
     // rebuild_cache.php.
     this._blockedPatterns = [];
     this._blockedPatternsFetchedAt = 0;
-
+    // Statistiche per fonte (last_checked, items_found, items_downloaded)
+    // lette da cache/source_stats.json — aggiornate con lo stesso throttle
+    // dei colori fonte (SOURCE_COLORS_REFRESH_MS).
+    this._sourceStats = {};
+    this._sourceStatsFetchedAt = 0;
   }
 
   static getConfigElement() {
@@ -290,6 +294,7 @@ class RssNewsCard extends HTMLElement {
     // _loadSourceColors() è auto-limitato nel tempo (vedi SOURCE_COLORS_REFRESH_MS).
     this._loadSourceColors();
     this._loadBlockedPatterns();
+    this._loadSourceStats();
   }
 
   set hass(hass) {
@@ -300,6 +305,7 @@ class RssNewsCard extends HTMLElement {
     // impostato lato server resterebbe non visto per molto più a lungo.
     this._loadSourceColors();
     this._loadBlockedPatterns();
+    this._loadSourceStats();
     const st = hass.states[this._config.entity];
     const stateKey = st ? (this._config.entity + ':' + st.state + ':' + st.last_updated) : this._config.entity;
     if (stateKey === this._lastStateKey && this._initialized) return;
@@ -439,6 +445,36 @@ class RssNewsCard extends HTMLElement {
       // semplicemente senza il filtro dei percorsi bloccati finché non
       // torna raggiungibile (prossimo tentativo dopo SOURCE_COLORS_REFRESH_MS,
       // o subito se l'utente blocca un nuovo percorso nel frattempo).
+    }
+  }
+
+  // URL del file source_stats.json: stessa cartella base del server admin fonti.
+  _sourceStatsUrl() {
+    let base = (this._config.feed_admin_url || DEFAULT_FEED_ADMIN_BASE_URL || '').trim();
+    if (!base) return '';
+    // Rimuove eventuali nomi di file PHP residui, garantisce lo slash finale.
+    base = base.replace(/[a-z_]+\.php.*$/i, '');
+    if (!base.endsWith('/')) base += '/';
+    return base + 'cache/source_stats.json';
+  }
+
+  async _loadSourceStats(force = false) {
+    const url = this._sourceStatsUrl();
+    if (!url) return;
+    const now = Date.now();
+    if (!force && this._sourceStatsFetchedAt && (now - this._sourceStatsFetchedAt) < SOURCE_COLORS_REFRESH_MS) return;
+    this._sourceStatsFetchedAt = now;
+    try {
+      const res = await fetch(url + '?_=' + now); // cache-buster leggero
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && typeof data === 'object') {
+        this._sourceStats = data;
+        // Ripopola il menu se è già renderizzato, così i contatori appaiono subito.
+        if (this._initialized) this._populateSourceFilter();
+      }
+    } catch {
+      // Nessuna connessione o file non ancora generato: silenzioso.
     }
   }
 
@@ -715,6 +751,9 @@ class RssNewsCard extends HTMLElement {
           .rss-source-filter-option:hover,.rss-source-filter-option:active{background:var(--secondary-background-color);}
           .rss-source-filter-option.selected{font-weight:700;}
           .rss-source-filter-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;background:var(--secondary-text-color);}
+          .rss-source-stat-badge{margin-left:auto;font-size:10px;font-family:monospace;opacity:0.65;white-space:nowrap;padding-left:4px;}
+          .rss-source-stat-badge--warn{color:var(--error-color,#f44336);opacity:0.9;font-weight:700;}
+          .rss-source-ghost{border-top:1px solid var(--divider-color);}
           .rss-scroll{overflow-y:scroll;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:thin;scrollbar-color:var(--divider-color) transparent;}
           .rss-article-row,.rss-article-row *{-webkit-user-select:none!important;-moz-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important;}
         </style>
@@ -839,9 +878,45 @@ class RssNewsCard extends HTMLElement {
       this._selectedSource = 'all';
     }
     const colorFor = (name) => this._sourceColors[String(name).trim().toLowerCase()] || null;
+
+    // Fonti presenti negli articoli correnti (quelle "vive").
+    const namesSet = new Set(names);
+
+    // Fonti note dal server (source_stats.json) ma assenti dagli articoli:
+    // le mostriamo ugualmente così l'utente capisce subito se qualcosa non ha scaricato.
+    const ghostNames = Object.keys(this._sourceStats).filter(n => !namesSet.has(n));
+    ghostNames.sort((a, b) => a.localeCompare(b));
+
+    // Formatta il badge "[scaricati/trovati]" e il tooltip con l'ora.
+    const statsBadge = (name) => {
+      const s = this._sourceStats[name];
+      if (!s) return { badge: '', title: '' };
+      const dl   = s.items_downloaded ?? 0;
+      const tot  = s.items_found      ?? 0;
+      const badge = `[${dl}/${tot}]`;
+      let timeStr = '';
+      if (s.last_checked) {
+        try {
+          timeStr = new Date(s.last_checked * 1000).toLocaleTimeString(
+            this._getDateLocale(), { hour: '2-digit', minute: '2-digit' }
+          );
+        } catch { timeStr = ''; }
+      }
+      const resultStr = s.result && s.result !== 'ok' ? ` · ${s.result}` : '';
+      const title = timeStr ? `Ultimo controllo: ${timeStr}${resultStr}` : resultStr;
+      return { badge, title };
+    };
+
+    // Costruisce una voce del menu.
+    const makeOption = (value, label, color, isGhost) => {
+      const { badge, title } = statsBadge(label);
+      return { value, label, color, badge, title, isGhost };
+    };
+
     const options = [
-      { value: 'all', label: t.filter_all, color: null },
-      ...names.map(n => ({ value: n, label: n, color: colorFor(n) })),
+      { value: 'all', label: t.filter_all, color: null, badge: '', title: '', isGhost: false },
+      ...names.map(n => makeOption(n, n, colorFor(n), false)),
+      ...ghostNames.map(n => makeOption(n, n, colorFor(n), true)),
     ];
 
     // Bottone: mostra il pallino/etichetta della fonte attualmente selezionata
@@ -849,7 +924,7 @@ class RssNewsCard extends HTMLElement {
     const btnDot = wrap.querySelector('.rss-source-filter-btn-dot');
     const btnLabel = wrap.querySelector('.rss-source-filter-btn-label');
     if (btnDot) btnDot.style.background = selected.color || 'var(--secondary-text-color)';
-    if (btnLabel) btnLabel.textContent = selected.label;
+    if (btnLabel) btnLabel.textContent = selected.label + (selected.badge ? ' ' + selected.badge : '');
 
     // Menu: ricostruito a ogni refresh dati, ma l'attributo "hidden" del
     // contenitore non viene toccato, quindi se l'utente lo ha aperto resta
@@ -857,9 +932,12 @@ class RssNewsCard extends HTMLElement {
     const menu = wrap.querySelector('.rss-source-filter-menu');
     if (menu) {
       menu.innerHTML = options.map(o => `
-        <div class="rss-source-filter-option${o.value === this._selectedSource ? ' selected' : ''}" data-value="${String(o.value).replace(/"/g, '&quot;')}">
-          <span class="rss-source-filter-dot" style="background:${o.color || 'var(--secondary-text-color)'};"></span>
-          <span>${o.label}</span>
+        <div class="rss-source-filter-option${o.value === this._selectedSource ? ' selected' : ''}${o.isGhost ? ' rss-source-ghost' : ''}"
+             data-value="${String(o.value).replace(/"/g, '&quot;')}"
+             ${o.title ? `title="${o.title.replace(/"/g, '&quot;')}"` : ''}>
+          <span class="rss-source-filter-dot" style="background:${o.isGhost ? 'var(--error-color,#f44336)' : (o.color || 'var(--secondary-text-color)')};${o.isGhost ? 'opacity:0.6;' : ''}"></span>
+          <span style="${o.isGhost ? 'opacity:0.6;' : ''}">${o.label}</span>
+          ${o.badge ? `<span class="rss-source-stat-badge${o.isGhost ? ' rss-source-stat-badge--warn' : ''}">${o.badge}</span>` : ''}
         </div>`).join('') + '<div class="rss-source-filter-scroll-hint"></div>';
       menu.querySelectorAll('.rss-source-filter-option').forEach(opt => {
         opt.addEventListener('click', (ev) => {
