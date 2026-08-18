@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.17.0 · build 2026-08-18-03';
+const CARD_VERSION = 'v1.17.0 · build 2026-08-18-04';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -785,10 +785,17 @@ class RssNewsCard extends HTMLElement {
       filterBtn.addEventListener('click', (ev) => {
         ev.stopPropagation();
         filterMenu.hidden = !filterMenu.hidden;
-        // Il menu è display:none mentre è chiuso, quindi scrollHeight/
-        // clientHeight sono inattendibili finché non torna visibile: va
-        // ricalcolato ORA, subito dopo averlo riaperto.
-        if (!filterMenu.hidden) this._updateFilterScrollHint();
+        if (!filterMenu.hidden) {
+          // Il menu è display:none mentre è chiuso, quindi scrollHeight/
+          // clientHeight sono inattendibili finché non torna visibile: va
+          // ricalcolato ORA, subito dopo averlo riaperto.
+          this._updateFilterScrollHint();
+          // Carica le stats forzando il bypass del throttle: così i badge
+          // [scaricati/trovati] mostrano sempre dati freschi all'apertura.
+          // _loadSourceStats(true) è async e chiama _populateSourceFilter()
+          // da sola quando ha i dati — il menu si aggiorna automaticamente.
+          this._loadSourceStats(true);
+        }
       });
     }
     // Indicatore "ci sono altre fonti sotto": un solo listener di scroll sul
@@ -888,8 +895,7 @@ class RssNewsCard extends HTMLElement {
     ghostNames.sort((a, b) => a.localeCompare(b));
 
     // Formatta il badge "[scaricati/trovati]" e il tooltip con l'ora.
-    // La lookup è case-insensitive: il nome negli articoli può differire
-    // per maiuscole dal nome configurato nel server (es. "birdmen" vs "Birdmen").
+    // Lookup case-insensitive: "Birdmen" nel JSON corrisponde a "birdmen" negli articoli.
     const statsBadge = (name) => {
       const nameLow = String(name).toLowerCase();
       const s = this._sourceStats[name]
