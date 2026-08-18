@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.17.0 · build 2026-08-18-07';
+const CARD_VERSION = 'v1.17.0 · build 2026-08-18-08';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -459,20 +459,18 @@ class RssNewsCard extends HTMLElement {
   }
 
   async _loadSourceStats(force = false) {
-    const url = this._sourceStatsUrl();
-    if (!url) { this._sourceStatsDebug = 'URL vuoto'; return; }
     const now = Date.now();
     if (!force && this._sourceStatsFetchedAt && (now - this._sourceStatsFetchedAt) < SOURCE_COLORS_REFRESH_MS) return;
     this._sourceStatsFetchedAt = now;
+    // Usa _feedApi (GET sources_admin.php) che ha già CORS e token corretti.
+    // La risposta include ora anche "stats": { nomeFonte: {last_checked,...} }.
     try {
-      const res = await fetch(url + '?_=' + now);
-      if (!res.ok) { this._sourceStatsDebug = 'HTTP ' + res.status + ' · ' + url; return; }
-      const data = await res.json();
-      if (data && typeof data === 'object') {
-        this._sourceStats = data;
-        this._sourceStatsDebug = 'OK · ' + Object.keys(data).length + ' fonti';
+      const data = await this._feedApi(null);
+      if (data && data.stats && typeof data.stats === 'object') {
+        this._sourceStats = data.stats;
+        this._sourceStatsDebug = 'OK · ' + Object.keys(data.stats).length + ' fonti';
       } else {
-        this._sourceStatsDebug = 'JSON non valido';
+        this._sourceStatsDebug = 'stats assente nella risposta';
       }
     } catch(e) {
       this._sourceStatsDebug = 'Errore: ' + String(e);
