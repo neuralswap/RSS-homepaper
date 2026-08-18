@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.17.0 · build 2026-08-18-04';
+const CARD_VERSION = 'v1.17.0 · build 2026-08-18-05';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -782,19 +782,19 @@ class RssNewsCard extends HTMLElement {
     const filterBtn = this.querySelector('.rss-source-filter-btn');
     const filterMenu = this.querySelector('.rss-source-filter-menu');
     if (filterBtn && filterMenu) {
-      filterBtn.addEventListener('click', (ev) => {
+      filterBtn.addEventListener('click', async (ev) => {
         ev.stopPropagation();
-        filterMenu.hidden = !filterMenu.hidden;
-        if (!filterMenu.hidden) {
-          // Il menu è display:none mentre è chiuso, quindi scrollHeight/
-          // clientHeight sono inattendibili finché non torna visibile: va
-          // ricalcolato ORA, subito dopo averlo riaperto.
+        const opening = filterMenu.hidden;
+        if (opening) {
+          // Carica stats fresche e ASPETTA che arrivino prima di aprire il
+          // menu: così i badge [scaricati/trovati] sono già presenti alla
+          // prima apertura, senza un secondo "lampeggio" di aggiornamento.
+          await this._loadSourceStats(true);
+          this._populateSourceFilter(); // ricostruisce con dati aggiornati
+          filterMenu.hidden = false;
           this._updateFilterScrollHint();
-          // Carica le stats forzando il bypass del throttle: così i badge
-          // [scaricati/trovati] mostrano sempre dati freschi all'apertura.
-          // _loadSourceStats(true) è async e chiama _populateSourceFilter()
-          // da sola quando ha i dati — il menu si aggiorna automaticamente.
-          this._loadSourceStats(true);
+        } else {
+          filterMenu.hidden = true;
         }
       });
     }
