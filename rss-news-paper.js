@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.17.0 · build 2026-08-18-02';
+const CARD_VERSION = 'v1.17.0 · build 2026-08-18-03';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -24,9 +24,6 @@ const FEED_ADMIN_FILENAME = 'sources_admin.php';
 // "Blocca le notizie da questo percorso"). Sta nella stessa cartella
 // dell'endpoint fonti, quindi riusa lo stesso feed_admin_url/token della card.
 const BLOCK_PATHS_FILENAME = 'block_paths.php';
-// File JSON con statistiche per fonte (prodotto da rebuild_cache.php):
-// last_checked, items_found, items_downloaded, result.
-const SOURCE_STATS_FILENAME = 'source_stats.json';
 // Quanto tenere premuto prima che scatti il long-press (ms). Sotto questa
 // soglia il gesto viene trattato come un normale tap/click che apre l'articolo.
 const LONG_PRESS_MS = 550;
