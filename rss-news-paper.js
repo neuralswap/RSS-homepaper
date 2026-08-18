@@ -462,10 +462,23 @@ class RssNewsCard extends HTMLElement {
     const now = Date.now();
     if (!force && this._sourceStatsFetchedAt && (now - this._sourceStatsFetchedAt) < SOURCE_COLORS_REFRESH_MS) return;
     this._sourceStatsFetchedAt = now;
-    // Usa _feedApi (GET sources_admin.php) che ha già CORS e token corretti.
-    // La risposta include ora anche "stats": { nomeFonte: {last_checked,...} }.
+    // NB: _feedApi() esiste solo nella classe RssNewsCardEditor, non qui in
+    // RssNewsCard: niente shortcut, rifacciamo il fetch GET a mano con lo
+    // stesso pattern usato da _loadSourceColors()/_loadBlockedPatterns().
+    // La risposta include anche "stats": { nomeFonte: {last_checked,...} }.
+    const url = this._feedAdminFullUrl();
+    const token = (this._config.feed_admin_token || '').trim();
+    if (!url) { this._sourceStatsDebug = 'feed_admin_url non configurato'; return; }
     try {
-      const data = await this._feedApi(null);
+      const res = await fetch(url + (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token), {
+        method: 'GET',
+        headers: { 'X-API-Token': token },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        this._sourceStatsDebug = 'Errore: ' + (data && data.error ? data.error : ('HTTP ' + res.status));
+        return;
+      }
       if (data && data.stats && typeof data.stats === 'object') {
         this._sourceStats = data.stats;
         this._sourceStatsDebug = 'OK · ' + Object.keys(data.stats).length + ' fonti';
