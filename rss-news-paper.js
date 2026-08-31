@@ -1439,7 +1439,8 @@ class RssNewsCardEditor extends HTMLElement {
     if (feedNewVerifyBtn) {
       feedNewVerifyBtn.addEventListener('click', () => {
         const urlEl = this.querySelector('#feed-new-url');
-        this._verifyFeedUrl(feedNewVerifyBtn, urlEl ? urlEl.value.trim() : '');
+        const nameEl = this.querySelector('#feed-new-name');
+        this._verifyFeedUrl(feedNewVerifyBtn, urlEl ? urlEl.value.trim() : '', nameEl ? nameEl.value.trim() : '');
       });
     }
   }
@@ -1533,23 +1534,24 @@ class RssNewsCardEditor extends HTMLElement {
     };
   }
 
-  // Legge l'URL DIRETTAMENTE dal campo della riga (non dal server): così
-  // "Verifica" testa quello che l'utente ha scritto in QUESTO momento,
-  // anche se non ha ancora premuto 💾 salva.
+  // Legge l'URL (e il nome, per il titolo del popup) DIRETTAMENTE dai campi
+  // della riga (non dal server): così "Verifica" testa quello che l'utente
+  // ha scritto in QUESTO momento, anche se non ha ancora premuto 💾 salva.
   _verifyFeedRow(btn, row) {
     const urlEl = row ? row.querySelector('[data-field="url"]') : null;
-    this._verifyFeedUrl(btn, urlEl ? urlEl.value.trim() : '');
+    const nameEl = row ? row.querySelector('[data-field="name"]') : null;
+    this._verifyFeedUrl(btn, urlEl ? urlEl.value.trim() : '', nameEl ? nameEl.value.trim() : '');
   }
 
-  async _verifyFeedUrl(btn, url) {
+  async _verifyFeedUrl(btn, url, name) {
     const t = this._t();
     if (!url) {
-      alert(t.ed.feed_verify_no_url);
+      this._showVerifyPopup(name, `<div class="rss-verify-error">${t.ed.feed_verify_no_url}</div>`);
       return;
     }
     const base = this._feedAdminFullUrl();
     if (!base) {
-      alert(t.ed.feed_set_url_first);
+      this._showVerifyPopup(name, `<div class="rss-verify-error">${t.ed.feed_set_url_first}</div>`);
       return;
     }
     // test_feed.php sta sempre accanto a sources_admin.php sullo stesso
@@ -1569,19 +1571,78 @@ class RssNewsCardEditor extends HTMLElement {
       try { data = await res.json(); } catch { throw new Error('Risposta non JSON dal server (' + res.status + ')'); }
       if (!res.ok || !data.ok) throw new Error(data.error || ('HTTP ' + res.status));
 
-      const titles = (data.sample_titles || []).map(s => '• ' + s).join('\n');
-      alert(
-        t.ed.feed_verify_ok
-          .replace('{n}', data.items_found)
-          .replace('{format}', data.format)
-        + (titles ? '\n\n' + titles : '')
-      );
+      const itemsHtml = (data.sample_items || []).map(it => `
+        <div class="rss-verify-item">
+          <div class="rss-verify-item-title">${(it.title || '').replace(/</g, '&lt;')}</div>
+          ${it.pubDate ? `<div class="rss-verify-item-date">${this._formatVerifyDate(it.pubDate)}</div>` : ''}
+        </div>`).join('');
+
+      const summary = t.ed.feed_verify_ok
+        .replace('{n}', data.items_found)
+        .replace('{format}', data.format);
+
+      this._showVerifyPopup(name, `
+        <div class="rss-verify-summary">${summary}</div>
+        ${itemsHtml}
+      `);
     } catch (e) {
-      alert(t.ed.feed_verify_error + ': ' + e.message);
+      this._showVerifyPopup(name, `<div class="rss-verify-error">${t.ed.feed_verify_error}: ${e.message}</div>`);
     } finally {
       btn.disabled = false;
       btn.textContent = origLabel;
     }
+  }
+
+  // Formattazione data leggera, indipendente da RssNewsCard (l'editor gira
+  // in una classe separata e non ha accesso a _formatDate/_getDateLocale).
+  _formatVerifyDate(pubDate) {
+    try {
+      const d = new Date(pubDate);
+      if (isNaN(d.getTime())) return pubDate;
+      return d.toLocaleString(undefined, {
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit'
+      });
+    } catch { return pubDate; }
+  }
+
+  // Popup personalizzato al posto di alert(): il titolo è il NOME della
+  // fonte (non l'indirizzo/host della pagina, che è quello che il dialogo
+  // nativo del browser mostrerebbe automaticamente).
+  _showVerifyPopup(name, bodyHtml) {
+    const existing = document.querySelector('.rss-verify-popup-overlay');
+    if (existing) existing.remove();
+
+    const t = this._t();
+    const overlay = document.createElement('div');
+    overlay.className = 'rss-verify-popup-overlay';
+    overlay.innerHTML = `
+      <style>
+        .rss-verify-popup-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;}
+        .rss-verify-popup{background:var(--card-background-color,#1c1c1c);color:var(--primary-text-color,#fff);border-radius:8px;max-width:420px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 4px 24px rgba(0,0,0,0.4);}
+        .rss-verify-popup-header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--divider-color,#333);}
+        .rss-verify-popup-header h3{margin:0;font-size:16px;font-weight:600;}
+        .rss-verify-popup-close{background:none;border:none;color:inherit;font-size:20px;cursor:pointer;line-height:1;opacity:0.7;padding:0 4px;}
+        .rss-verify-popup-close:hover{opacity:1;}
+        .rss-verify-popup-body{padding:14px 16px;}
+        .rss-verify-summary{font-size:14px;font-weight:600;margin-bottom:10px;}
+        .rss-verify-item{padding:8px 0;border-top:1px solid var(--divider-color,#333);}
+        .rss-verify-item:first-of-type{border-top:none;}
+        .rss-verify-item-title{font-size:13px;line-height:1.4;}
+        .rss-verify-item-date{font-size:11px;opacity:0.65;margin-top:2px;}
+        .rss-verify-error{font-size:14px;color:var(--error-color,#f44336);}
+      </style>
+      <div class="rss-verify-popup">
+        <div class="rss-verify-popup-header">
+          <h3>${(name && name.trim()) ? name.trim().replace(/</g, '&lt;') : t.ed.feed_verify}</h3>
+          <button class="rss-verify-popup-close">✕</button>
+        </div>
+        <div class="rss-verify-popup-body">${bodyHtml}</div>
+      </div>
+    `;
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    overlay.querySelector('.rss-verify-popup-close').addEventListener('click', () => overlay.remove());
+    document.body.appendChild(overlay);
   }
 
   async _addFeedSource() {
