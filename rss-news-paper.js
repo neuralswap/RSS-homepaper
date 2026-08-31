@@ -1609,22 +1609,31 @@ class RssNewsCardEditor extends HTMLElement {
   // Popup personalizzato al posto di alert(): il titolo è il NOME della
   // fonte (non l'indirizzo/host della pagina, che è quello che il dialogo
   // nativo del browser mostrerebbe automaticamente).
+  //
+  // Usiamo un <dialog> nativo con showModal() invece di un semplice div con
+  // z-index alto: il dialog di modifica di Home Assistant è anch'esso un
+  // <dialog> nativo (o equivalente), che vive nel "top layer" del browser —
+  // uno strato SOPRA qualunque z-index, per quanto alto. Un div normale,
+  // per quanto z-index:2147483647, non può mai comparire sopra un elemento
+  // nel top layer. Un <dialog> aperto con showModal() invece entra anche
+  // lui nel top layer, e l'ultimo aperto vince (appare sopra i precedenti),
+  // quindi il nostro popup risulterà sempre sopra quello di HA.
   _showVerifyPopup(name, bodyHtml) {
-    const existing = document.querySelector('.rss-verify-popup-overlay');
+    const existing = document.querySelector('.rss-verify-popup-dialog');
     if (existing) existing.remove();
 
     const t = this._t();
-    const overlay = document.createElement('div');
-    overlay.className = 'rss-verify-popup-overlay';
-    overlay.innerHTML = `
+    const dialog = document.createElement('dialog');
+    dialog.className = 'rss-verify-popup-dialog';
+    dialog.innerHTML = `
       <style>
-        .rss-verify-popup-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:16px;}
-        .rss-verify-popup{background:var(--card-background-color,#1c1c1c);color:var(--primary-text-color,#fff);border-radius:8px;max-width:420px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 4px 24px rgba(0,0,0,0.4);}
+        .rss-verify-popup-dialog{border:none;border-radius:8px;padding:0;max-width:420px;width:calc(100vw - 32px);max-height:80vh;background:var(--card-background-color,#1c1c1c);color:var(--primary-text-color,#fff);box-shadow:0 4px 24px rgba(0,0,0,0.4);}
+        .rss-verify-popup-dialog::backdrop{background:rgba(0,0,0,0.5);}
         .rss-verify-popup-header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--divider-color,#333);}
         .rss-verify-popup-header h3{margin:0;font-size:16px;font-weight:600;}
         .rss-verify-popup-close{background:none;border:none;color:inherit;font-size:20px;cursor:pointer;line-height:1;opacity:0.7;padding:0 4px;}
         .rss-verify-popup-close:hover{opacity:1;}
-        .rss-verify-popup-body{padding:14px 16px;}
+        .rss-verify-popup-body{padding:14px 16px;overflow-y:auto;max-height:calc(80vh - 50px);}
         .rss-verify-summary{font-size:14px;font-weight:600;margin-bottom:10px;}
         .rss-verify-item{padding:8px 0;border-top:1px solid var(--divider-color,#333);}
         .rss-verify-item:first-of-type{border-top:none;}
@@ -1632,17 +1641,19 @@ class RssNewsCardEditor extends HTMLElement {
         .rss-verify-item-date{font-size:11px;opacity:0.65;margin-top:2px;}
         .rss-verify-error{font-size:14px;color:var(--error-color,#f44336);}
       </style>
-      <div class="rss-verify-popup">
-        <div class="rss-verify-popup-header">
-          <h3>${(name && name.trim()) ? name.trim().replace(/</g, '&lt;') : t.ed.feed_verify}</h3>
-          <button class="rss-verify-popup-close">✕</button>
-        </div>
-        <div class="rss-verify-popup-body">${bodyHtml}</div>
+      <div class="rss-verify-popup-header">
+        <h3>${(name && name.trim()) ? name.trim().replace(/</g, '&lt;') : t.ed.feed_verify}</h3>
+        <button class="rss-verify-popup-close">✕</button>
       </div>
+      <div class="rss-verify-popup-body">${bodyHtml}</div>
     `;
-    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
-    overlay.querySelector('.rss-verify-popup-close').addEventListener('click', () => overlay.remove());
-    document.body.appendChild(overlay);
+    // Click sul backdrop (fuori dal riquadro, ma dentro il <dialog>) -> chiudi.
+    dialog.addEventListener('click', e => { if (e.target === dialog) dialog.close(); });
+    dialog.querySelector('.rss-verify-popup-close').addEventListener('click', () => dialog.close());
+    dialog.addEventListener('close', () => dialog.remove());
+
+    document.body.appendChild(dialog);
+    dialog.showModal();
   }
 
   async _addFeedSource() {
