@@ -70,6 +70,10 @@ const RSS_LOCALES = {
       feed_loading:      'Loading feeds…',
       feed_load_error:   'Could not load feeds',
       feed_set_url_first:'Set the admin endpoint URL to manage feeds.',
+      feed_verify:         'Verify this feed URL',
+      feed_verify_no_url:  'Enter a feed URL first.',
+      feed_verify_ok:      'Found {n} items ({format} feed).',
+      feed_verify_error:   'Verification failed',
     },
   },
   hu: {
@@ -109,6 +113,10 @@ const RSS_LOCALES = {
       feed_loading:        'Források betöltése…',
       feed_load_error:     'Nem sikerült betölteni a forrásokat',
       feed_set_url_first:  'Add meg a végpont URL-jét a források kezeléséhez.',
+      feed_verify:         'Feed URL ellenőrzése',
+      feed_verify_no_url:  'Először add meg a feed URL-jét.',
+      feed_verify_ok:      '{n} elem található ({format} feed).',
+      feed_verify_error:   'Az ellenőrzés sikertelen',
     },
   },
   de: {
@@ -148,6 +156,10 @@ const RSS_LOCALES = {
       feed_loading:        'Quellen werden geladen…',
       feed_load_error:     'Quellen konnten nicht geladen werden',
       feed_set_url_first:  'Admin-Endpunkt-URL festlegen, um Quellen zu verwalten.',
+      feed_verify:         'Feed-URL prüfen',
+      feed_verify_no_url:  'Bitte zuerst eine Feed-URL eingeben.',
+      feed_verify_ok:      '{n} Einträge gefunden ({format}-Feed).',
+      feed_verify_error:   'Prüfung fehlgeschlagen',
     },
   },
   it: {
@@ -187,6 +199,10 @@ const RSS_LOCALES = {
       feed_loading:         'Caricamento fonti…',
       feed_load_error:      'Impossibile caricare le fonti',
       feed_set_url_first:   'Imposta l\'URL dell\'endpoint per gestire le fonti.',
+      feed_verify:          'Verifica questo indirizzo RSS',
+      feed_verify_no_url:   'Scrivi prima un indirizzo del feed.',
+      feed_verify_ok:       'Trovate {n} notizie (feed {format}).',
+      feed_verify_error:    'Verifica fallita',
     },
   },
 };
@@ -1178,6 +1194,8 @@ class RssNewsCardEditor extends HTMLElement {
         .rss-add{margin-top:6px;padding:4px 12px;cursor:pointer;background:var(--primary-color);color:white;border:none;border-radius:4px;}
         .rss-del{padding:2px 8px;cursor:pointer;border:1px solid var(--divider-color);border-radius:4px;background:transparent;color:var(--primary-text-color);}
         .rss-save{padding:2px 8px;cursor:pointer;border:1px solid var(--primary-color);border-radius:4px;background:transparent;color:var(--primary-color);flex-shrink:0;}
+        .rss-verify{padding:2px 8px;cursor:pointer;border:1px solid var(--divider-color);border-radius:4px;background:transparent;color:var(--primary-text-color);flex-shrink:0;}
+        .rss-verify:disabled{opacity:0.5;cursor:default;}
         .rss-feed-msg{font-size:12px;opacity:0.7;padding:4px 0;}
         .rss-feed-msg.error{color:var(--error-color,#f44336);opacity:1;}
         .rss-toggle-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--divider-color);}
@@ -1215,6 +1233,7 @@ class RssNewsCardEditor extends HTMLElement {
               <option value="google_news">google_news</option>
             </select>
             <input type="color" id="feed-new-color" value="#1a73e8" title="${t.ed.feed_color}" style="width:36px;height:32px;padding:2px;flex-shrink:0;"/>
+            <button class="rss-verify" id="feed-new-verify" title="${t.ed.feed_verify}">🔍</button>
             <button class="rss-add" id="feed-new-add">${t.ed.feed_add}</button>
           </div>
         </div>
@@ -1415,6 +1434,14 @@ class RssNewsCardEditor extends HTMLElement {
     if (feedAddBtn) {
       feedAddBtn.addEventListener('click', () => this._addFeedSource());
     }
+
+    const feedNewVerifyBtn = this.querySelector('#feed-new-verify');
+    if (feedNewVerifyBtn) {
+      feedNewVerifyBtn.addEventListener('click', () => {
+        const urlEl = this.querySelector('#feed-new-url');
+        this._verifyFeedUrl(feedNewVerifyBtn, urlEl ? urlEl.value.trim() : '');
+      });
+    }
   }
 
   // ─── Fonti RSS lato server: fetch helper ─────────────────────────────────
@@ -1481,10 +1508,14 @@ class RssNewsCardEditor extends HTMLElement {
           <option value="google_news" ${f.type === 'google_news' ? 'selected' : ''}>google_news</option>
         </select>
         <input type="color" data-field="color" value="${(f.color && /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(f.color)) ? f.color : '#1a73e8'}" title="${t.ed.feed_color}" style="width:36px;height:32px;padding:2px;flex-shrink:0;"/>
+        <button class="rss-verify" data-feed-id="${f.id}" title="${t.ed.feed_verify}">🔍</button>
         <button class="rss-save" data-feed-id="${f.id}">💾</button>
         <button class="rss-del" data-feed-id="${f.id}">✕</button>
       </div>`).join('');
 
+    container.querySelectorAll('.rss-verify').forEach(btn => {
+      btn.addEventListener('click', () => this._verifyFeedRow(btn, btn.closest('.rss-src-row')));
+    });
     container.querySelectorAll('.rss-save').forEach(btn => {
       btn.addEventListener('click', () => this._saveFeedSource(btn.dataset.feedId, btn.closest('.rss-src-row')));
     });
@@ -1500,6 +1531,57 @@ class RssNewsCardEditor extends HTMLElement {
       type: row.querySelector('[data-field="type"]').value,
       color: row.querySelector('[data-field="color"]').value.trim(),
     };
+  }
+
+  // Legge l'URL DIRETTAMENTE dal campo della riga (non dal server): così
+  // "Verifica" testa quello che l'utente ha scritto in QUESTO momento,
+  // anche se non ha ancora premuto 💾 salva.
+  _verifyFeedRow(btn, row) {
+    const urlEl = row ? row.querySelector('[data-field="url"]') : null;
+    this._verifyFeedUrl(btn, urlEl ? urlEl.value.trim() : '');
+  }
+
+  async _verifyFeedUrl(btn, url) {
+    const t = this._t();
+    if (!url) {
+      alert(t.ed.feed_verify_no_url);
+      return;
+    }
+    const base = this._feedAdminFullUrl();
+    if (!base) {
+      alert(t.ed.feed_set_url_first);
+      return;
+    }
+    // test_feed.php sta sempre accanto a sources_admin.php sullo stesso
+    // server: riusiamo la stessa base URL, sostituendo solo il nome file.
+    const testUrl = base.replace(new RegExp(FEED_ADMIN_FILENAME.replace('.', '\\.') + '$'), 'test_feed.php');
+    const token = (this._config.feed_admin_token || '').trim();
+
+    const origLabel = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '…';
+    try {
+      const res = await fetch(
+        testUrl + (testUrl.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token) + '&url=' + encodeURIComponent(url),
+        { headers: { 'X-API-Token': token } }
+      );
+      let data;
+      try { data = await res.json(); } catch { throw new Error('Risposta non JSON dal server (' + res.status + ')'); }
+      if (!res.ok || !data.ok) throw new Error(data.error || ('HTTP ' + res.status));
+
+      const titles = (data.sample_titles || []).map(s => '• ' + s).join('\n');
+      alert(
+        t.ed.feed_verify_ok
+          .replace('{n}', data.items_found)
+          .replace('{format}', data.format)
+        + (titles ? '\n\n' + titles : '')
+      );
+    } catch (e) {
+      alert(t.ed.feed_verify_error + ': ' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = origLabel;
+    }
   }
 
   async _addFeedSource() {
