@@ -1618,7 +1618,7 @@ class RssNewsCardEditor extends HTMLElement {
     overlay.className = 'rss-verify-popup-overlay';
     overlay.innerHTML = `
       <style>
-        .rss-verify-popup-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px;}
+        .rss-verify-popup-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:16px;}
         .rss-verify-popup{background:var(--card-background-color,#1c1c1c);color:var(--primary-text-color,#fff);border-radius:8px;max-width:420px;width:100%;max-height:80vh;overflow-y:auto;box-shadow:0 4px 24px rgba(0,0,0,0.4);}
         .rss-verify-popup-header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--divider-color,#333);}
         .rss-verify-popup-header h3{margin:0;font-size:16px;font-weight:600;}
