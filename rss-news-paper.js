@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.18.0 · build 2026-08-27-01';
+const CARD_VERSION = 'v1.18.1 · build 2026-09-26-01';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -766,16 +766,18 @@ class RssNewsCard extends HTMLElement {
       <ha-card>
         <style>
           .rss-inner{padding:12px 16px;}
-          .rss-header{display:flex;flex-direction:column;gap:2px;margin-bottom:8px;}
+          .rss-header{display:flex;flex-direction:column;gap:6px;margin-bottom:8px;}
           .rss-header-top{display:flex;align-items:center;justify-content:space-between;gap:8px;}
           .rss-title{font-size:24px;font-weight:400;margin-bottom:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
           .rss-version{font-size:10px;color:var(--secondary-text-color);opacity:0.55;white-space:nowrap;align-self:flex-end;}
-          .rss-source-filter-wrap,.rss-topic-filter-wrap{position:relative;flex-shrink:0;max-width:48%;}
+          .rss-source-filter-wrap,.rss-topic-filter-wrap{position:relative;flex:1;min-width:0;}
           .rss-source-filter-btn,.rss-topic-filter-btn{display:flex;align-items:center;gap:6px;width:100%;max-width:100%;padding:4px 8px;font-size:12px;border-radius:6px;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color);cursor:pointer;-webkit-tap-highlight-color:transparent;}
           .rss-source-filter-btn-dot,.rss-topic-filter-btn-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;background:var(--secondary-text-color);}
           .rss-source-filter-btn-label,.rss-topic-filter-btn-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;text-align:left;}
           .rss-source-filter-btn-caret,.rss-topic-filter-btn-caret{flex-shrink:0;opacity:0.6;font-size:9px;}
-          .rss-source-filter-menu,.rss-topic-filter-menu{position:absolute;top:calc(100% + 4px);right:0;min-width:150px;max-width:min(240px,80vw);max-height:280px;overflow-y:auto;background:var(--card-background-color);border:1px solid var(--divider-color);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.35);z-index:20;padding:4px 0;}
+          .rss-source-filter-menu,.rss-topic-filter-menu{position:absolute;top:calc(100% + 4px);min-width:150px;max-width:min(240px,80vw);max-height:280px;overflow-y:auto;background:var(--card-background-color);border:1px solid var(--divider-color);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.35);z-index:20;padding:4px 0;}
+          .rss-source-filter-menu{left:0;}
+          .rss-topic-filter-menu{right:0;}
           .rss-source-filter-menu[hidden],.rss-topic-filter-menu[hidden]{display:none;}
           .rss-source-filter-scroll-hint,.rss-topic-filter-scroll-hint{position:sticky;bottom:4px;display:block;width:100%;box-sizing:border-box;padding-right:10px;text-align:right;pointer-events:none;opacity:0;transition:opacity .15s ease;}
           .rss-source-filter-scroll-hint::after,.rss-topic-filter-scroll-hint::after{content:'▾';display:inline-flex;align-items:center;justify-content:center;width:32px;height:20px;border-radius:5px;background:rgba(255,255,255,0.55);color:#000;font-size:19px;font-weight:700;line-height:1;}
@@ -787,7 +789,7 @@ class RssNewsCard extends HTMLElement {
           .rss-source-stat-badge{margin-left:auto;font-size:10px;font-family:monospace;opacity:0.65;white-space:nowrap;padding-left:4px;}
           .rss-source-stat-badge--warn{color:var(--error-color,#f44336);opacity:0.9;font-weight:700;}
           .rss-source-ghost{border-top:1px solid var(--divider-color);}
-          .rss-filters-row{display:flex;align-items:center;gap:6px;flex-shrink:0;max-width:100%;overflow:hidden;}
+          .rss-filters-row{display:flex;align-items:center;gap:6px;width:100%;}
           .rss-scroll{overflow-y:scroll;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:thin;scrollbar-color:var(--divider-color) transparent;}
           .rss-article-row,.rss-article-row *{-webkit-user-select:none!important;-moz-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important;}
         </style>
@@ -795,26 +797,26 @@ class RssNewsCard extends HTMLElement {
           <div class="rss-header">
             <div class="rss-header-top">
               <div class="rss-title-el"></div>
-              <div class="rss-filters-row">
-                <div class="rss-source-filter-wrap">
-                  <button type="button" class="rss-source-filter-btn">
-                    <span class="rss-source-filter-btn-dot"></span>
-                    <span class="rss-source-filter-btn-label"></span>
-                    <span class="rss-source-filter-btn-caret">▾</span>
-                  </button>
-                  <div class="rss-source-filter-menu" hidden></div>
-                </div>
-                <div class="rss-topic-filter-wrap">
-                  <button type="button" class="rss-topic-filter-btn">
-                    <span class="rss-topic-filter-btn-dot"></span>
-                    <span class="rss-topic-filter-btn-label"></span>
-                    <span class="rss-topic-filter-btn-caret">▾</span>
-                  </button>
-                  <div class="rss-topic-filter-menu" hidden></div>
-                </div>
+              <div class="rss-version">${CARD_VERSION}</div>
+            </div>
+            <div class="rss-filters-row">
+              <div class="rss-source-filter-wrap">
+                <button type="button" class="rss-source-filter-btn">
+                  <span class="rss-source-filter-btn-dot"></span>
+                  <span class="rss-source-filter-btn-label"></span>
+                  <span class="rss-source-filter-btn-caret">▾</span>
+                </button>
+                <div class="rss-source-filter-menu" hidden></div>
+              </div>
+              <div class="rss-topic-filter-wrap">
+                <button type="button" class="rss-topic-filter-btn">
+                  <span class="rss-topic-filter-btn-dot"></span>
+                  <span class="rss-topic-filter-btn-label"></span>
+                  <span class="rss-topic-filter-btn-caret">▾</span>
+                </button>
+                <div class="rss-topic-filter-menu" hidden></div>
               </div>
             </div>
-            <div class="rss-version">${CARD_VERSION}</div>
           </div>
           <div class="rss-diag"></div>
           <div class="rss-scroll"><div class="rss-articles"></div></div>
