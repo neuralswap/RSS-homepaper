@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.17.0 · build 2026-08-18-08';
+const CARD_VERSION = 'v1.18.0 · build 2026-08-27-01';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -36,6 +36,7 @@ const RSS_LOCALES = {
   en: {
     no_articles: 'No articles to display.',
     filter_all: 'All sources',
+    filter_all_topics: 'All topics',
     diag_title: '⚠️ Sensor diagnostics',
     diag_footer: 'Missing sensors must be created as <code>command_line</code> sensors in <b>configuration.yaml</b>.',
     problems: {
@@ -79,6 +80,7 @@ const RSS_LOCALES = {
   hu: {
     no_articles: 'Nincs megjeleníthető cikk.',
     filter_all: 'Összes forrás',
+    filter_all_topics: 'Összes téma',
     diag_title: '⚠️ Szenzor diagnosztika',
     diag_footer: 'A hibás szenzorokat <code>command_line</code> szenzorokként kell létrehozni a <b>configuration.yaml</b>-ban.',
     problems: {
@@ -122,6 +124,7 @@ const RSS_LOCALES = {
   de: {
     no_articles: 'Keine Artikel zum Anzeigen.',
     filter_all: 'Alle Quellen',
+    filter_all_topics: 'Alle Themen',
     diag_title: '⚠️ Sensor-Diagnose',
     diag_footer: 'Fehlende Sensoren müssen als <code>command_line</code>-Sensoren in <b>configuration.yaml</b> erstellt werden.',
     problems: {
@@ -165,6 +168,7 @@ const RSS_LOCALES = {
   it: {
     no_articles: 'Nessun articolo da mostrare.',
     filter_all: 'Tutte le fonti',
+    filter_all_topics: 'Tutti gli argomenti',
     diag_title: '⚠️ Diagnostica sensori',
     diag_footer: 'I sensori mancanti devono essere creati come sensori <code>command_line</code> in <b>configuration.yaml</b>.',
     problems: {
@@ -237,6 +241,7 @@ class RssNewsCard extends HTMLElement {
     this._lastStateKey = '';
     this._initialized = false;
     this._selectedSource = 'all';
+    this._selectedTopic = 'all';
     this._sourceColors = {};
     this._sourceColorsFetchedAt = 0;
     // Pattern bloccati (long-press -> "Blocca"): caricati dal server e
@@ -765,23 +770,24 @@ class RssNewsCard extends HTMLElement {
           .rss-header-top{display:flex;align-items:center;justify-content:space-between;gap:8px;}
           .rss-title{font-size:24px;font-weight:400;margin-bottom:0;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
           .rss-version{font-size:10px;color:var(--secondary-text-color);opacity:0.55;white-space:nowrap;align-self:flex-end;}
-          .rss-source-filter-wrap{position:relative;flex-shrink:0;max-width:60%;}
-          .rss-source-filter-btn{display:flex;align-items:center;gap:6px;width:100%;max-width:100%;padding:4px 8px;font-size:12px;border-radius:6px;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color);cursor:pointer;-webkit-tap-highlight-color:transparent;}
-          .rss-source-filter-btn-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;background:var(--secondary-text-color);}
-          .rss-source-filter-btn-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;text-align:left;}
-          .rss-source-filter-btn-caret{flex-shrink:0;opacity:0.6;font-size:9px;}
-          .rss-source-filter-menu{position:absolute;top:calc(100% + 4px);right:0;min-width:150px;max-width:min(240px,80vw);max-height:280px;overflow-y:auto;background:var(--card-background-color);border:1px solid var(--divider-color);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.35);z-index:20;padding:4px 0;}
-          .rss-source-filter-menu[hidden]{display:none;}
-          .rss-source-filter-scroll-hint{position:sticky;bottom:4px;display:block;width:100%;box-sizing:border-box;padding-right:10px;text-align:right;pointer-events:none;opacity:0;transition:opacity .15s ease;}
-          .rss-source-filter-scroll-hint::after{content:'▾';display:inline-flex;align-items:center;justify-content:center;width:32px;height:20px;border-radius:5px;background:rgba(255,255,255,0.55);color:#000;font-size:19px;font-weight:700;line-height:1;}
-          .rss-source-filter-scroll-hint.visible{opacity:1;}
-          .rss-source-filter-option{display:flex;align-items:center;gap:8px;padding:9px 12px;font-size:13px;color:var(--primary-text-color);cursor:pointer;-webkit-tap-highlight-color:transparent;}
-          .rss-source-filter-option:hover,.rss-source-filter-option:active{background:var(--secondary-background-color);}
-          .rss-source-filter-option.selected{font-weight:700;}
-          .rss-source-filter-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;background:var(--secondary-text-color);}
+          .rss-source-filter-wrap,.rss-topic-filter-wrap{position:relative;flex-shrink:0;max-width:48%;}
+          .rss-source-filter-btn,.rss-topic-filter-btn{display:flex;align-items:center;gap:6px;width:100%;max-width:100%;padding:4px 8px;font-size:12px;border-radius:6px;border:1px solid var(--divider-color);background:var(--card-background-color);color:var(--primary-text-color);cursor:pointer;-webkit-tap-highlight-color:transparent;}
+          .rss-source-filter-btn-dot,.rss-topic-filter-btn-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;background:var(--secondary-text-color);}
+          .rss-source-filter-btn-label,.rss-topic-filter-btn-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;text-align:left;}
+          .rss-source-filter-btn-caret,.rss-topic-filter-btn-caret{flex-shrink:0;opacity:0.6;font-size:9px;}
+          .rss-source-filter-menu,.rss-topic-filter-menu{position:absolute;top:calc(100% + 4px);right:0;min-width:150px;max-width:min(240px,80vw);max-height:280px;overflow-y:auto;background:var(--card-background-color);border:1px solid var(--divider-color);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,0.35);z-index:20;padding:4px 0;}
+          .rss-source-filter-menu[hidden],.rss-topic-filter-menu[hidden]{display:none;}
+          .rss-source-filter-scroll-hint,.rss-topic-filter-scroll-hint{position:sticky;bottom:4px;display:block;width:100%;box-sizing:border-box;padding-right:10px;text-align:right;pointer-events:none;opacity:0;transition:opacity .15s ease;}
+          .rss-source-filter-scroll-hint::after,.rss-topic-filter-scroll-hint::after{content:'▾';display:inline-flex;align-items:center;justify-content:center;width:32px;height:20px;border-radius:5px;background:rgba(255,255,255,0.55);color:#000;font-size:19px;font-weight:700;line-height:1;}
+          .rss-source-filter-scroll-hint.visible,.rss-topic-filter-scroll-hint.visible{opacity:1;}
+          .rss-source-filter-option,.rss-topic-filter-option{display:flex;align-items:center;gap:8px;padding:9px 12px;font-size:13px;color:var(--primary-text-color);cursor:pointer;-webkit-tap-highlight-color:transparent;}
+          .rss-source-filter-option:hover,.rss-source-filter-option:active,.rss-topic-filter-option:hover,.rss-topic-filter-option:active{background:var(--secondary-background-color);}
+          .rss-source-filter-option.selected,.rss-topic-filter-option.selected{font-weight:700;}
+          .rss-source-filter-dot,.rss-topic-filter-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;background:var(--secondary-text-color);}
           .rss-source-stat-badge{margin-left:auto;font-size:10px;font-family:monospace;opacity:0.65;white-space:nowrap;padding-left:4px;}
           .rss-source-stat-badge--warn{color:var(--error-color,#f44336);opacity:0.9;font-weight:700;}
           .rss-source-ghost{border-top:1px solid var(--divider-color);}
+          .rss-filters-row{display:flex;align-items:center;gap:6px;flex-shrink:0;max-width:100%;overflow:hidden;}
           .rss-scroll{overflow-y:scroll;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:thin;scrollbar-color:var(--divider-color) transparent;}
           .rss-article-row,.rss-article-row *{-webkit-user-select:none!important;-moz-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important;}
         </style>
@@ -789,13 +795,23 @@ class RssNewsCard extends HTMLElement {
           <div class="rss-header">
             <div class="rss-header-top">
               <div class="rss-title-el"></div>
-              <div class="rss-source-filter-wrap">
-                <button type="button" class="rss-source-filter-btn">
-                  <span class="rss-source-filter-btn-dot"></span>
-                  <span class="rss-source-filter-btn-label"></span>
-                  <span class="rss-source-filter-btn-caret">▾</span>
-                </button>
-                <div class="rss-source-filter-menu" hidden></div>
+              <div class="rss-filters-row">
+                <div class="rss-source-filter-wrap">
+                  <button type="button" class="rss-source-filter-btn">
+                    <span class="rss-source-filter-btn-dot"></span>
+                    <span class="rss-source-filter-btn-label"></span>
+                    <span class="rss-source-filter-btn-caret">▾</span>
+                  </button>
+                  <div class="rss-source-filter-menu" hidden></div>
+                </div>
+                <div class="rss-topic-filter-wrap">
+                  <button type="button" class="rss-topic-filter-btn">
+                    <span class="rss-topic-filter-btn-dot"></span>
+                    <span class="rss-topic-filter-btn-label"></span>
+                    <span class="rss-topic-filter-btn-caret">▾</span>
+                  </button>
+                  <div class="rss-topic-filter-menu" hidden></div>
+                </div>
               </div>
             </div>
             <div class="rss-version">${CARD_VERSION}</div>
@@ -833,6 +849,32 @@ class RssNewsCard extends HTMLElement {
       filterMenu.removeEventListener('scroll', this._boundFilterMenuScroll);
       filterMenu.addEventListener('scroll', this._boundFilterMenuScroll);
     }
+
+    // Filtro argomenti: stessa logica del filtro fonti, ma senza bisogno di
+    // ricaricare statistiche dal server (i topic vengono già dagli articoli
+    // che la card ha già in memoria).
+    const topicBtn = this.querySelector('.rss-topic-filter-btn');
+    const topicMenu = this.querySelector('.rss-topic-filter-menu');
+    if (topicBtn && topicMenu) {
+      topicBtn.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        if (topicMenu.hidden) {
+          this._populateTopicFilter();
+          topicMenu.hidden = false;
+          this._updateTopicFilterScrollHint();
+        } else {
+          topicMenu.hidden = true;
+        }
+      });
+    }
+    if (!this._boundTopicFilterMenuScroll) {
+      this._boundTopicFilterMenuScroll = () => this._updateTopicFilterScrollHint();
+    }
+    if (topicMenu) {
+      topicMenu.removeEventListener('scroll', this._boundTopicFilterMenuScroll);
+      topicMenu.addEventListener('scroll', this._boundTopicFilterMenuScroll);
+    }
+
     // Click fuori dal menu -> chiudi. Un solo listener sul document per
     // istanza (rimosso e riaggiunto a ogni _render per evitare che si
     // accumulino più listener quando la card viene ri-renderizzata).
@@ -840,8 +882,10 @@ class RssNewsCard extends HTMLElement {
       this._boundCloseFilterMenu = (ev) => {
         const wrap = this.querySelector('.rss-source-filter-wrap');
         const menu = this.querySelector('.rss-source-filter-menu');
-        if (!wrap || !menu || menu.hidden) return;
-        if (!wrap.contains(ev.target)) menu.hidden = true;
+        if (wrap && menu && !menu.hidden && !wrap.contains(ev.target)) menu.hidden = true;
+        const tWrap = this.querySelector('.rss-topic-filter-wrap');
+        const tMenu = this.querySelector('.rss-topic-filter-menu');
+        if (tWrap && tMenu && !tMenu.hidden && !tWrap.contains(ev.target)) tMenu.hidden = true;
       };
     }
     document.removeEventListener('click', this._boundCloseFilterMenu);
@@ -1000,6 +1044,76 @@ class RssNewsCard extends HTMLElement {
     hint.classList.toggle('visible', hasMoreBelow);
   }
 
+  // Selezione di un argomento dal menu a tendina: stessa logica di
+  // _selectSource, ma sul filtro topic invece che fonte.
+  _selectTopic(value) {
+    this._selectedTopic = value;
+    const menu = this.querySelector('.rss-topic-filter-menu');
+    if (menu) menu.hidden = true;
+    this._updateContent(this._articles || [], JSON.parse(this._lastIssuesJson || '[]'));
+    const scrollEl = this.querySelector('.rss-scroll');
+    if (scrollEl) scrollEl.scrollTop = 0;
+  }
+
+  // Costruisce l'elenco argomenti a partire da TUTTI gli articoli correnti
+  // (indipendentemente dalla fonte selezionata nell'altro filtro: i due
+  // filtri sono indipendenti e si combinano, come richiesto), usando la
+  // stessa etichetta mostrata sul badge di ogni notizia (_topicLabel), così
+  // "Tecnologia", "Altro", ecc. compaiono esattamente una volta ciascuno
+  // anche se provengono da fonti diverse.
+  _populateTopicFilter() {
+    const wrap = this.querySelector('.rss-topic-filter-wrap');
+    if (!wrap) return;
+    const t = this._t();
+
+    const seen = new Map(); // chiave lowercase -> etichetta mostrata (prima occorrenza)
+    for (const a of (this._articles || [])) {
+      const label = this._topicLabel(a);
+      if (!label) continue;
+      const key = label.toLowerCase();
+      if (!seen.has(key)) seen.set(key, label);
+    }
+    const topics = Array.from(seen.values()).sort((a, b) => a.localeCompare(b));
+
+    if (this._selectedTopic !== 'all' && !topics.some(tp => tp.toLowerCase() === this._selectedTopic.toLowerCase())) {
+      this._selectedTopic = 'all';
+    }
+
+    const options = [
+      { value: 'all', label: t.filter_all_topics },
+      ...topics.map(tp => ({ value: tp, label: tp })),
+    ];
+
+    const selected = options.find(o => o.value.toLowerCase() === this._selectedTopic.toLowerCase()) || options[0];
+    const btnLabel = wrap.querySelector('.rss-topic-filter-btn-label');
+    if (btnLabel) btnLabel.textContent = selected.label;
+
+    const menu = wrap.querySelector('.rss-topic-filter-menu');
+    if (menu) {
+      menu.innerHTML = options.map(o => `
+        <div class="rss-topic-filter-option${o.value.toLowerCase() === this._selectedTopic.toLowerCase() ? ' selected' : ''}"
+             data-value="${String(o.value).replace(/"/g, '&quot;')}">
+          <span>${o.label}</span>
+        </div>`).join('') + '<div class="rss-topic-filter-scroll-hint"></div>';
+      menu.querySelectorAll('.rss-topic-filter-option').forEach(opt => {
+        opt.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          this._selectTopic(opt.dataset.value);
+        });
+      });
+      if (!menu.hidden) this._updateTopicFilterScrollHint();
+    }
+  }
+
+  // Analogo di _updateFilterScrollHint ma per il menu argomenti.
+  _updateTopicFilterScrollHint() {
+    const menu = this.querySelector('.rss-topic-filter-menu');
+    const hint = this.querySelector('.rss-topic-filter-scroll-hint');
+    if (!menu || !hint) return;
+    const hasMoreBelow = (menu.scrollHeight - menu.scrollTop - menu.clientHeight) > 4;
+    hint.classList.toggle('visible', hasMoreBelow);
+  }
+
   // Calcola quanto spazio verticale resta tra la card e il fondo della
   // finestra e lo usa come altezza dello scroll interno, invece di un
   // valore fisso in px. Serve perché lo spazio disponibile cambia da
@@ -1056,12 +1170,14 @@ class RssNewsCard extends HTMLElement {
     }
 
     this._populateSourceFilter();
+    this._populateTopicFilter();
     // Nessun limite: la card mostra tutti gli articoli disponibili (già
-    // filtrati per fonte, se selezionata). Il taglio "Numero massimo di
-    // articoli" è stato rimosso su richiesta: niente più cap artificiale.
-    const filteredArticles = this._selectedSource === 'all'
-      ? articles
-      : articles.filter(a => this._providerLabel(a) === this._selectedSource);
+    // filtrati per fonte/argomento, se selezionati). Il taglio "Numero
+    // massimo di articoli" è stato rimosso su richiesta: niente più cap
+    // artificiale. I due filtri sono indipendenti e si combinano (AND).
+    const filteredArticles = articles
+      .filter(a => this._selectedSource === 'all' || this._providerLabel(a) === this._selectedSource)
+      .filter(a => this._selectedTopic === 'all' || this._topicLabel(a).toLowerCase() === this._selectedTopic.toLowerCase());
 
     const diagEl = this.querySelector('.rss-diag');
     const artEl = this.querySelector('.rss-articles');
