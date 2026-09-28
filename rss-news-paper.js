@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.20.2 · build 2026-09-28-04';
+const CARD_VERSION = 'v1.20.3 · build 2026-09-28-05';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -831,7 +831,10 @@ class RssNewsCard extends HTMLElement {
 
   async _fetchSummary(articleUrl, signal) {
     const cached = this._summaryCache.get(articleUrl);
-    if (cached) return cached;
+    // Copia in memoria valida solo 5 minuti: il server ha già la sua cache su
+    // disco (risponde in un attimo), e così dopo un aggiornamento del server
+    // non si resta a lungo a vedere un testo vecchio finché non si ricarica la pagina.
+    if (cached && (Date.now() - cached.at) < 5 * 60 * 1000) return cached.data;
     const base = this._summarizeFullUrl();
     const token = (this._config.feed_admin_token || '').trim();
     const full = base + (base.includes('?') ? '&' : '?')
@@ -864,7 +867,7 @@ class RssNewsCard extends HTMLElement {
     let data;
     try { data = await res.json(); } catch { throw new Error('Risposta non JSON dal server (' + res.status + ')'); }
     if (!res.ok || !data.ok) throw new Error(data.error || ('HTTP ' + res.status));
-    this._summaryCache.set(articleUrl, data);
+    this._summaryCache.set(articleUrl, { data, at: Date.now() });
     return data;
   }
 
@@ -939,7 +942,11 @@ class RssNewsCard extends HTMLElement {
     notes.push(data.partial || data.source === 'meta' ? t.partial_note : t.auto_note);
     if (data.translated) notes.push(t.translated);
     else if (data.lang && data.lang !== 'it' && data.translation_warning) notes.push(t.not_translated);
-    return html + `<div class="rss-sum-note">${notes.map(n => this._escHtml(n)).join(' · ')}</div>`;
+    // Quale server ha risposto: versione (se il server la dichiara) e build.
+    // Serve a verificare a colpo d'occhio che sul server giri il file aggiornato.
+    const srv = [data.version ? 'v' + data.version : null, data.build].filter(Boolean).join(' · ');
+    return html + `<div class="rss-sum-note">${notes.map(n => this._escHtml(n)).join(' · ')}</div>`
+      + (srv ? `<div class="rss-sum-note" style="opacity:0.55;">summarize.php ${this._escHtml(srv)}</div>` : '');
   }
 
   // Se il riassunto non si può ottenere (sito che blocca, paywall, server non
