@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.18.1 · build 2026-09-26-01';
+const CARD_VERSION = 'v1.19.0 · build 2026-09-28-01';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -24,6 +24,9 @@ const FEED_ADMIN_FILENAME = 'sources_admin.php';
 // "Blocca le notizie da questo percorso"). Sta nella stessa cartella
 // dell'endpoint fonti, quindi riusa lo stesso feed_admin_url/token della card.
 const BLOCK_PATHS_FILENAME = 'block_paths.php';
+// Endpoint del popup "riassunto" (click su una notizia): scarica l'articolo
+// lato server, ne estrae le frasi principali e le traduce se serve.
+const SUMMARIZE_FILENAME = 'summarize.php';
 // Quanto tenere premuto prima che scatti il long-press (ms). Sotto questa
 // soglia il gesto viene trattato come un normale tap/click che apre l'articolo.
 const LONG_PRESS_MS = 550;
@@ -37,6 +40,13 @@ const RSS_LOCALES = {
     no_articles: 'No articles to display.',
     filter_all: 'All sources',
     filter_all_topics: 'All topics',
+    summary: {
+      loading: 'Reading the article…', open: 'Open article', close: 'Close',
+      auto_note: 'Automatic summary: the key sentences of the article.',
+      partial_note: 'Only the description declared by the site was available.',
+      translated: 'Translated automatically', not_translated: 'Original text (translation unavailable)',
+      unavailable: 'Summary not available', fallback_note: 'Showing the feed description instead.', reason: 'Reason',
+    },
     diag_title: '⚠️ Sensor diagnostics',
     diag_footer: 'Missing sensors must be created as <code>command_line</code> sensors in <b>configuration.yaml</b>.',
     problems: {
@@ -60,6 +70,7 @@ const RSS_LOCALES = {
       show_date:         'Show date',
       show_desc:         'Show description',
       show_original:     'Show original text',
+      summary_popup:     'Summary popup on click',
       title_size:        'Article title font size (px)',
       desc_size:         'Description font size (px)',
       color_hint:        'Leave empty for theme default',
@@ -81,6 +92,13 @@ const RSS_LOCALES = {
     no_articles: 'Nincs megjeleníthető cikk.',
     filter_all: 'Összes forrás',
     filter_all_topics: 'Összes téma',
+    summary: {
+      loading: 'A cikk beolvasása…', open: 'Cikk megnyitása', close: 'Bezárás',
+      auto_note: 'Automatikus összefoglaló: a cikk fő mondatai.',
+      partial_note: 'Csak az oldal által megadott leírás volt elérhető.',
+      translated: 'Automatikusan lefordítva', not_translated: 'Eredeti szöveg (a fordítás nem érhető el)',
+      unavailable: 'Az összefoglaló nem érhető el', fallback_note: 'A hírcsatorna leírását mutatom.', reason: 'Ok',
+    },
     diag_title: '⚠️ Szenzor diagnosztika',
     diag_footer: 'A hibás szenzorokat <code>command_line</code> szenzorokként kell létrehozni a <b>configuration.yaml</b>-ban.',
     problems: {
@@ -104,6 +122,7 @@ const RSS_LOCALES = {
       show_date:           'Dátum látható',
       show_desc:           'Leírás látható',
       show_original:       'Eredeti szöveg megjelenítése',
+      summary_popup:       'Összefoglaló ablak kattintáskor',
       title_size:          'Cím betűmérete (px)',
       desc_size:           'Leírás betűmérete (px)',
       color_hint:          'Üresen hagyva a téma alapszínét használja',
@@ -125,6 +144,13 @@ const RSS_LOCALES = {
     no_articles: 'Keine Artikel zum Anzeigen.',
     filter_all: 'Alle Quellen',
     filter_all_topics: 'Alle Themen',
+    summary: {
+      loading: 'Artikel wird gelesen…', open: 'Artikel öffnen', close: 'Schließen',
+      auto_note: 'Automatische Zusammenfassung: die wichtigsten Sätze des Artikels.',
+      partial_note: 'Nur die von der Seite angegebene Beschreibung war verfügbar.',
+      translated: 'Automatisch übersetzt', not_translated: 'Originaltext (Übersetzung nicht verfügbar)',
+      unavailable: 'Zusammenfassung nicht verfügbar', fallback_note: 'Stattdessen wird die Feed-Beschreibung angezeigt.', reason: 'Grund',
+    },
     diag_title: '⚠️ Sensor-Diagnose',
     diag_footer: 'Fehlende Sensoren müssen als <code>command_line</code>-Sensoren in <b>configuration.yaml</b> erstellt werden.',
     problems: {
@@ -148,6 +174,7 @@ const RSS_LOCALES = {
       show_date:           'Datum anzeigen',
       show_desc:           'Beschreibung anzeigen',
       show_original:       'Originaltext anzeigen',
+      summary_popup:       'Zusammenfassung beim Klick',
       title_size:          'Schriftgröße Artikeltitel (px)',
       desc_size:           'Schriftgröße Beschreibung (px)',
       color_hint:          'Leer lassen für Themenstandardfarbe',
@@ -169,6 +196,13 @@ const RSS_LOCALES = {
     no_articles: 'Nessun articolo da mostrare.',
     filter_all: 'Tutte le fonti',
     filter_all_topics: 'Tutti gli argomenti',
+    summary: {
+      loading: "Sto leggendo l'articolo…", open: 'Apri articolo', close: 'Chiudi',
+      auto_note: "Riassunto automatico: le frasi principali dell'articolo.",
+      partial_note: 'Disponibile solo la descrizione dichiarata dal sito.',
+      translated: 'Tradotto automaticamente', not_translated: 'Testo originale (traduzione non disponibile)',
+      unavailable: 'Riassunto non disponibile', fallback_note: 'Mostro la descrizione del feed.', reason: 'Motivo',
+    },
     diag_title: '⚠️ Diagnostica sensori',
     diag_footer: 'I sensori mancanti devono essere creati come sensori <code>command_line</code> in <b>configuration.yaml</b>.',
     problems: {
@@ -192,6 +226,7 @@ const RSS_LOCALES = {
       show_date:            'Mostra data',
       show_desc:            'Mostra descrizione',
       show_original:        'Mostra testo originale',
+      summary_popup:        'Popup riassunto al click',
       title_size:           'Dimensione carattere titolo (px)',
       desc_size:            'Dimensione carattere descrizione (px)',
       color_hint:           'Lascia vuoto per il colore predefinito del tema',
@@ -242,6 +277,13 @@ class RssNewsCard extends HTMLElement {
     this._initialized = false;
     this._selectedSource = 'all';
     this._selectedTopic = 'all';
+    // Popup riassunto: cache in memoria (url -> risposta) per non richiedere
+    // due volte lo stesso articolo nella stessa sessione, richiesta in corso
+    // (per poterla annullare alla chiusura) e popup aperto.
+    this._summaryCache = new Map();
+    this._summaryAbort = null;
+    this._summaryOverlay = null;
+    this._summaryKeyHandler = null;
     this._sourceColors = {};
     this._sourceColorsFetchedAt = 0;
     // Pattern bloccati (long-press -> "Blocca"): caricati dal server e
@@ -273,6 +315,7 @@ class RssNewsCard extends HTMLElement {
       show_source: true,
       show_date: true,
       show_original: true,
+      summary_popup: true,
       title_font_size: 15,
       desc_font_size: 14,
       card_title_color: '',
@@ -295,6 +338,9 @@ class RssNewsCard extends HTMLElement {
       show_source:      config.show_source !== false,
       show_date:        config.show_date !== false,
       show_original:    config.show_original !== false,
+      // Al click su una notizia apre un popup col riassunto (default) invece
+      // di aprire subito la pagina. false = comportamento precedente.
+      summary_popup:    config.summary_popup !== false,
       title_font_size:  config.title_font_size || 15,
       desc_font_size:   config.desc_font_size || 14,
       card_title_color: config.card_title_color || '',
@@ -742,6 +788,163 @@ class RssNewsCard extends HTMLElement {
     });
   }
 
+  // ─── Popup "riassunto" al click su una notizia ──────────────────────────────
+  // Il testo arriva da summarize.php (lato server: la card non può scaricare
+  // da sola la pagina di un altro sito per via del CORS del browser).
+
+  _escHtml(s) {
+    return String(s ?? '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  _summarizeFullUrl() {
+    let base = (this._config.feed_admin_url || DEFAULT_FEED_ADMIN_BASE_URL || '').trim();
+    if (!base) return '';
+    base = base
+      .replace(new RegExp(FEED_ADMIN_FILENAME.replace('.', '\\.') + '/?$'), '')
+      .replace(new RegExp(BLOCK_PATHS_FILENAME.replace('.', '\\.') + '/?$'), '')
+      .replace(new RegExp(SUMMARIZE_FILENAME.replace('.', '\\.') + '/?$'), '');
+    if (!/\/$/.test(base)) base += '/';
+    return base + SUMMARIZE_FILENAME;
+  }
+
+  async _fetchSummary(articleUrl, signal) {
+    const cached = this._summaryCache.get(articleUrl);
+    if (cached) return cached;
+    const base = this._summarizeFullUrl();
+    const token = (this._config.feed_admin_token || '').trim();
+    const full = base + (base.includes('?') ? '&' : '?')
+      + 'token=' + encodeURIComponent(token)
+      + '&url=' + encodeURIComponent(articleUrl);
+    const res = await fetch(full, { signal });
+    let data;
+    try { data = await res.json(); } catch { throw new Error('Risposta non JSON dal server (' + res.status + ')'); }
+    if (!res.ok || !data.ok) throw new Error(data.error || ('HTTP ' + res.status));
+    this._summaryCache.set(articleUrl, data);
+    return data;
+  }
+
+  _ensureSummaryStyles() {
+    if (document.getElementById('rss-summary-modal-style')) return;
+    const style = document.createElement('style');
+    style.id = 'rss-summary-modal-style';
+    style.textContent = `
+      .rss-sum-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;}
+      .rss-sum-box{background:var(--card-background-color,#1c1c1c);color:var(--primary-text-color,#fff);border-radius:14px;max-width:520px;width:100%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 10px 40px rgba(0,0,0,0.5);overflow:hidden;}
+      .rss-sum-head{padding:16px 18px 6px;flex-shrink:0;}
+      .rss-sum-meta{font-size:11px;color:var(--secondary-text-color,#aaa);display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px;}
+      .rss-sum-title{font-size:17px;font-weight:700;line-height:1.35;word-break:break-word;}
+      .rss-sum-pub{font-style:italic;font-weight:400;opacity:0.75;}
+      .rss-sum-body{padding:8px 18px 14px;overflow-y:auto;-webkit-overflow-scrolling:touch;font-size:14px;line-height:1.5;flex:1;min-height:60px;}
+      .rss-sum-list{margin:6px 0 0;padding-left:18px;}
+      .rss-sum-list li{margin-bottom:9px;}
+      .rss-sum-note{font-size:11px;color:var(--secondary-text-color,#aaa);opacity:0.85;margin-top:10px;}
+      .rss-sum-loading{color:var(--secondary-text-color,#aaa);padding:8px 0;}
+      .rss-sum-unavail{font-weight:600;margin-bottom:8px;}
+      .rss-sum-fallback-desc{color:var(--secondary-text-color,#aaa);}
+      .rss-sum-spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--divider-color,#555);border-top-color:var(--primary-color,#03a9f4);border-radius:50%;animation:rss-sum-spin .8s linear infinite;vertical-align:-2px;margin-right:8px;}
+      @keyframes rss-sum-spin{to{transform:rotate(360deg);}}
+      .rss-sum-actions{display:flex;gap:10px;justify-content:flex-end;padding:12px 18px 16px;border-top:1px solid var(--divider-color,rgba(255,255,255,0.12));flex-shrink:0;}
+      .rss-sum-btn{border:none;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+      .rss-sum-btn-secondary{background:transparent;color:var(--secondary-text-color,#aaa);}
+      .rss-sum-btn-secondary:hover{background:var(--secondary-background-color,rgba(255,255,255,0.08));}
+      .rss-sum-btn-primary{background:var(--primary-color,#03a9f4);color:var(--text-primary-color,#fff);}
+    `;
+    document.head.appendChild(style);
+  }
+
+  _closeSummaryPopup() {
+    if (this._summaryAbort) { try { this._summaryAbort.abort(); } catch {} this._summaryAbort = null; }
+    if (this._summaryKeyHandler) {
+      document.removeEventListener('keydown', this._summaryKeyHandler);
+      this._summaryKeyHandler = null;
+    }
+    if (this._summaryOverlay) { this._summaryOverlay.remove(); this._summaryOverlay = null; }
+  }
+
+  _summaryBodyHtml(data, t) {
+    const items = (data.sentences || []).map(s => `<li>${this._escHtml(s)}</li>`).join('');
+    const notes = [];
+    notes.push(data.partial || data.source === 'meta' ? t.partial_note : t.auto_note);
+    if (data.translated) notes.push(t.translated);
+    else if (data.lang && data.lang !== 'it' && data.translation_warning) notes.push(t.not_translated);
+    return `<ul class="rss-sum-list">${items}</ul>`
+      + `<div class="rss-sum-note">${notes.map(n => this._escHtml(n)).join(' · ')}</div>`;
+  }
+
+  // Se il riassunto non si può ottenere (sito che blocca, paywall, server non
+  // raggiungibile...) il popup non resta vuoto: mostra la descrizione che la
+  // card aveva già, il motivo del problema, e il bottone per aprire l'articolo.
+  _summaryFallbackHtml(article, err, t) {
+    const desc = this._cleanDescription(article.description);
+    const reason = err && err.name === 'AbortError' ? 'timeout' : ((err && err.message) || '');
+    return `<div class="rss-sum-unavail">${this._escHtml(t.unavailable)}</div>`
+      + (desc ? `<div class="rss-sum-fallback-desc">${this._escHtml(desc)}</div>`
+              + `<div class="rss-sum-note">${this._escHtml(t.fallback_note)}</div>` : '')
+      + (reason ? `<div class="rss-sum-note">${this._escHtml(t.reason)}: ${this._escHtml(reason)}</div>` : '');
+  }
+
+  _openSummaryPopup(article) {
+    this._closeSummaryPopup();
+    this._ensureSummaryStyles();
+    const t = this._t().summary;
+
+    const provider = this._providerLabel(article);
+    const isAggregator = /google/i.test(String(provider || ''));
+    const { main: titleMain, publication } = isAggregator
+      ? this._splitAggregatorTitle(article)
+      : { main: article.title, publication: null };
+    const topic = this._topicLabel(article);
+    const meta = [
+      `<span style="font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:${this._escHtml(this._categoryColor(article))};">${this._escHtml(topic)}</span>`,
+    ];
+    if (provider && String(provider).toLowerCase() !== String(topic).toLowerCase()) {
+      meta.push(`<span style="font-weight:600;">${this._escHtml(provider)}</span>`);
+    }
+    meta.push(`<span>${this._escHtml(this._formatDate(article.pubDate))}</span>`);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'rss-sum-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.innerHTML = `
+      <div class="rss-sum-box">
+        <div class="rss-sum-head">
+          <div class="rss-sum-meta">${meta.join('<span style="opacity:0.4;">·</span>')}</div>
+          <div class="rss-sum-title">${this._escHtml(titleMain)}${publication ? ` <span class="rss-sum-pub">– ${this._escHtml(publication)}</span>` : ''}</div>
+        </div>
+        <div class="rss-sum-body"><div class="rss-sum-loading"><span class="rss-sum-spinner"></span>${this._escHtml(t.loading)}</div></div>
+        <div class="rss-sum-actions">
+          <button type="button" class="rss-sum-btn rss-sum-btn-secondary rss-sum-close">${this._escHtml(t.close)}</button>
+          <button type="button" class="rss-sum-btn rss-sum-btn-primary rss-sum-open">${this._escHtml(t.open)} ↗</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    this._summaryOverlay = overlay;
+
+    overlay.addEventListener('click', (ev) => { if (ev.target === overlay) this._closeSummaryPopup(); });
+    overlay.querySelector('.rss-sum-close').addEventListener('click', () => this._closeSummaryPopup());
+    // Il bottone chiama _handleLinkClick direttamente dentro il click (senza
+    // await in mezzo): serve perché i browser lasciano aprire una finestra
+    // solo in risposta diretta a un gesto dell'utente.
+    overlay.querySelector('.rss-sum-open').addEventListener('click', () => {
+      this._handleLinkClick(article.link);
+      this._closeSummaryPopup();
+    });
+    this._summaryKeyHandler = (ev) => { if (ev.key === 'Escape') this._closeSummaryPopup(); };
+    document.addEventListener('keydown', this._summaryKeyHandler);
+
+    const body = overlay.querySelector('.rss-sum-body');
+    const ctrl = new AbortController();
+    this._summaryAbort = ctrl;
+    const timer = setTimeout(() => ctrl.abort(), 50000);
+    this._fetchSummary(article.link, ctrl.signal)
+      .then((data) => { if (this._summaryOverlay === overlay) body.innerHTML = this._summaryBodyHtml(data, t); })
+      .catch((err) => { if (this._summaryOverlay === overlay) body.innerHTML = this._summaryFallbackHtml(article, err, t); })
+      .finally(() => clearTimeout(timer));
+  }
+
   _handleLinkClick(url) {
     // Android Companion App – native in-app browser
     if (window.externalApp?.openExternalUrl) {
@@ -915,6 +1118,7 @@ class RssNewsCard extends HTMLElement {
   }
 
   disconnectedCallback() {
+    this._closeSummaryPopup();
     if (this._boundCloseFilterMenu) document.removeEventListener('click', this._boundCloseFilterMenu);
     if (this._boundAutoHeight) window.removeEventListener('resize', this._boundAutoHeight);
   }
@@ -1246,6 +1450,13 @@ class RssNewsCard extends HTMLElement {
           this._markVisited(url);
           const titleEl = row.querySelector('.rss-atitle');
           if (titleEl) titleEl.style.color = 'var(--disabled-text-color)';
+          // Popup col riassunto invece dell'apertura immediata (disattivabile
+          // con summary_popup: false). Il bottone "Apri articolo" del popup
+          // porta poi alla pagina vera.
+          if (this._config.summary_popup !== false) {
+            const article = (this._articles || []).find(a => a.link === url);
+            if (article) { this._openSummaryPopup(article); return; }
+          }
           this._handleLinkClick(url);
         });
       });
@@ -1429,6 +1640,13 @@ class RssNewsCardEditor extends HTMLElement {
               <span class="rss-slider"></span>
             </label>
           </div>
+          <div class="rss-toggle-row">
+            <label for="tog-summary">${t.ed.summary_popup}</label>
+            <label class="rss-toggle">
+              <input type="checkbox" id="tog-summary" ${c.summary_popup !== false ? 'checked' : ''}/>
+              <span class="rss-slider"></span>
+            </label>
+          </div>
         </div>
       </div>`;
 
@@ -1529,6 +1747,7 @@ class RssNewsCardEditor extends HTMLElement {
     bindChk('#tog-date',   'show_date');
     bindChk('#tog-desc',   'show_description');
     bindChk('#tog-original', 'show_original');
+    bindChk('#tog-summary', 'summary_popup');
 
     bind('#ed-entity', 'entity');
 
@@ -1832,6 +2051,7 @@ class RssNewsCardEditor extends HTMLElement {
     setChk('#tog-date',   c.show_date !== false);
     setChk('#tog-desc',   c.show_description !== false);
     setChk('#tog-original', c.show_original !== false);
+    setChk('#tog-summary', c.summary_popup !== false);
     setChk('#tog-auto-height', c.auto_height === true);
     const heightInput = this.querySelector('#ed-height');
     if (heightInput) heightInput.disabled = c.auto_height === true;
