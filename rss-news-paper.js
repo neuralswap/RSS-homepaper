@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.20.1 · build 2026-09-28-03';
+const CARD_VERSION = 'v1.20.2 · build 2026-09-28-04';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -45,7 +45,7 @@ const RSS_LOCALES = {
       auto_note: 'Automatic summary: the key sentences of the article.',
       partial_note: 'Only the description declared by the site was available.',
       translated: 'Translated automatically', not_translated: 'Original text (translation unavailable)',
-      unavailable: 'Summary not available', fallback_note: 'Showing the feed description instead.', reason: 'Reason', original: 'Original', err_interrupted: 'The server answers, but the request for this article was interrupted (timeout or server error)', err_unreachable: 'Server not reachable from this app (network, CORS or missing file)',
+      unavailable: 'Summary not available', fallback_note: 'Showing the feed description instead.', reason: 'Reason', original: 'Original', err_interrupted: 'The server answers, but the request for this article was interrupted (timeout or server error)', err_unreachable: 'Server not reachable from this app (network, CORS or missing file)', err_mixed: 'Home Assistant is opened over HTTPS but the news server is HTTP: the browser blocks the request (mixed content)',
     },
     diag_title: '⚠️ Sensor diagnostics',
     diag_footer: 'Missing sensors must be created as <code>command_line</code> sensors in <b>configuration.yaml</b>.',
@@ -97,7 +97,7 @@ const RSS_LOCALES = {
       auto_note: 'Automatikus összefoglaló: a cikk fő mondatai.',
       partial_note: 'Csak az oldal által megadott leírás volt elérhető.',
       translated: 'Automatikusan lefordítva', not_translated: 'Eredeti szöveg (a fordítás nem érhető el)',
-      unavailable: 'Az összefoglaló nem érhető el', fallback_note: 'A hírcsatorna leírását mutatom.', reason: 'Ok', original: 'Eredeti', err_interrupted: 'A szerver válaszol, de a cikkre vonatkozó kérés megszakadt (időtúllépés vagy szerverhiba)', err_unreachable: 'A szerver nem érhető el ebből az alkalmazásból (hálózat, CORS vagy hiányzó fájl)',
+      unavailable: 'Az összefoglaló nem érhető el', fallback_note: 'A hírcsatorna leírását mutatom.', reason: 'Ok', original: 'Eredeti', err_interrupted: 'A szerver válaszol, de a cikkre vonatkozó kérés megszakadt (időtúllépés vagy szerverhiba)', err_unreachable: 'A szerver nem érhető el ebből az alkalmazásból (hálózat, CORS vagy hiányzó fájl)', err_mixed: 'A Home Assistant HTTPS-en van megnyitva, a hírszerver viszont HTTP: a böngésző blokkolja a kérést (vegyes tartalom)',
     },
     diag_title: '⚠️ Szenzor diagnosztika',
     diag_footer: 'A hibás szenzorokat <code>command_line</code> szenzorokként kell létrehozni a <b>configuration.yaml</b>-ban.',
@@ -149,7 +149,7 @@ const RSS_LOCALES = {
       auto_note: 'Automatische Zusammenfassung: die wichtigsten Sätze des Artikels.',
       partial_note: 'Nur die von der Seite angegebene Beschreibung war verfügbar.',
       translated: 'Automatisch übersetzt', not_translated: 'Originaltext (Übersetzung nicht verfügbar)',
-      unavailable: 'Zusammenfassung nicht verfügbar', fallback_note: 'Stattdessen wird die Feed-Beschreibung angezeigt.', reason: 'Grund', original: 'Original', err_interrupted: 'Der Server antwortet, aber die Anfrage für diesen Artikel wurde unterbrochen (Timeout oder Serverfehler)', err_unreachable: 'Server von dieser App aus nicht erreichbar (Netzwerk, CORS oder fehlende Datei)',
+      unavailable: 'Zusammenfassung nicht verfügbar', fallback_note: 'Stattdessen wird die Feed-Beschreibung angezeigt.', reason: 'Grund', original: 'Original', err_interrupted: 'Der Server antwortet, aber die Anfrage für diesen Artikel wurde unterbrochen (Timeout oder Serverfehler)', err_unreachable: 'Server von dieser App aus nicht erreichbar (Netzwerk, CORS oder fehlende Datei)', err_mixed: 'Home Assistant ist über HTTPS geöffnet, der News-Server aber nur über HTTP: der Browser blockiert die Anfrage (Mixed Content)',
     },
     diag_title: '⚠️ Sensor-Diagnose',
     diag_footer: 'Fehlende Sensoren müssen als <code>command_line</code>-Sensoren in <b>configuration.yaml</b> erstellt werden.',
@@ -201,7 +201,7 @@ const RSS_LOCALES = {
       auto_note: "Riassunto automatico: le frasi principali dell'articolo.",
       partial_note: 'Disponibile solo la descrizione dichiarata dal sito.',
       translated: 'Tradotto automaticamente', not_translated: 'Testo originale (traduzione non disponibile)',
-      unavailable: 'Riassunto non disponibile', fallback_note: 'Mostro la descrizione del feed.', reason: 'Motivo', original: 'Originale', err_interrupted: "Il server risponde, ma la richiesta per questo articolo è stata interrotta (timeout o errore sul server)", err_unreachable: 'Server non raggiungibile da questa app (rete, CORS o file mancante)',
+      unavailable: 'Riassunto non disponibile', fallback_note: 'Mostro la descrizione del feed.', reason: 'Motivo', original: 'Originale', err_interrupted: "Il server risponde, ma la richiesta per questo articolo è stata interrotta (timeout o errore sul server)", err_unreachable: 'Server non raggiungibile da questa app (rete, CORS o file mancante)', err_mixed: 'Home Assistant è aperto in HTTPS ma il server notizie è in HTTP: il browser blocca la richiesta (contenuto misto)',
     },
     diag_title: '⚠️ Diagnostica sensori',
     diag_footer: 'I sensori mancanti devono essere creati come sensori <code>command_line</code> in <b>configuration.yaml</b>.',
@@ -812,6 +812,10 @@ class RssNewsCard extends HTMLElement {
   // true se summarize.php risponde a una richiesta senza articolo (è leggera e
   // restituisce un errore JSON con gli header CORS): qualsiasi risposta
   // leggibile significa "server raggiungibile e CORS ok".
+  _originOf(url) {
+    try { return new URL(url).origin; } catch { return String(url); }
+  }
+
   async _pingSummarize(base, token) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 6000);
@@ -833,6 +837,14 @@ class RssNewsCard extends HTMLElement {
     const full = base + (base.includes('?') ? '&' : '?')
       + 'token=' + encodeURIComponent(token)
       + '&url=' + encodeURIComponent(articleUrl);
+    const t0 = this._t().summary;
+    const route = `[${(typeof location !== 'undefined' && location.origin) || '?'} → ${this._originOf(base)}]`;
+    // Pagina in HTTPS che chiama un server in HTTP: il browser blocca la
+    // richiesta ("contenuto misto") e l'unico messaggio che dà è "Failed to
+    // fetch". Qui lo si riconosce prima ancora di provare.
+    if (typeof location !== 'undefined' && location.protocol === 'https:' && /^http:\/\//i.test(base)) {
+      throw new Error(`${t0.err_mixed} ${route}`);
+    }
     let res;
     try {
       res = await fetch(full, { signal });
@@ -845,7 +857,9 @@ class RssNewsCard extends HTMLElement {
       // risponde, il server c'è e il problema è la richiesta vera.
       const t = this._t().summary;
       const reachable = await this._pingSummarize(base, token);
-      throw new Error(reachable ? t.err_interrupted : t.err_unreachable);
+      // Con l'indirizzo della pagina e quello del server si vede subito se
+      // l'app sta usando un indirizzo diverso da quello che ci si aspetta.
+      throw new Error(reachable ? t.err_interrupted : `${t.err_unreachable} ${route}`);
     }
     let data;
     try { data = await res.json(); } catch { throw new Error('Risposta non JSON dal server (' + res.status + ')'); }
