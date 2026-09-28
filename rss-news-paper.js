@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.19.0 · build 2026-09-28-01';
+const CARD_VERSION = 'v1.20.0 · build 2026-09-28-02';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -45,7 +45,7 @@ const RSS_LOCALES = {
       auto_note: 'Automatic summary: the key sentences of the article.',
       partial_note: 'Only the description declared by the site was available.',
       translated: 'Translated automatically', not_translated: 'Original text (translation unavailable)',
-      unavailable: 'Summary not available', fallback_note: 'Showing the feed description instead.', reason: 'Reason',
+      unavailable: 'Summary not available', fallback_note: 'Showing the feed description instead.', reason: 'Reason', original: 'Original',
     },
     diag_title: '⚠️ Sensor diagnostics',
     diag_footer: 'Missing sensors must be created as <code>command_line</code> sensors in <b>configuration.yaml</b>.',
@@ -97,7 +97,7 @@ const RSS_LOCALES = {
       auto_note: 'Automatikus összefoglaló: a cikk fő mondatai.',
       partial_note: 'Csak az oldal által megadott leírás volt elérhető.',
       translated: 'Automatikusan lefordítva', not_translated: 'Eredeti szöveg (a fordítás nem érhető el)',
-      unavailable: 'Az összefoglaló nem érhető el', fallback_note: 'A hírcsatorna leírását mutatom.', reason: 'Ok',
+      unavailable: 'Az összefoglaló nem érhető el', fallback_note: 'A hírcsatorna leírását mutatom.', reason: 'Ok', original: 'Eredeti',
     },
     diag_title: '⚠️ Szenzor diagnosztika',
     diag_footer: 'A hibás szenzorokat <code>command_line</code> szenzorokként kell létrehozni a <b>configuration.yaml</b>-ban.',
@@ -149,7 +149,7 @@ const RSS_LOCALES = {
       auto_note: 'Automatische Zusammenfassung: die wichtigsten Sätze des Artikels.',
       partial_note: 'Nur die von der Seite angegebene Beschreibung war verfügbar.',
       translated: 'Automatisch übersetzt', not_translated: 'Originaltext (Übersetzung nicht verfügbar)',
-      unavailable: 'Zusammenfassung nicht verfügbar', fallback_note: 'Stattdessen wird die Feed-Beschreibung angezeigt.', reason: 'Grund',
+      unavailable: 'Zusammenfassung nicht verfügbar', fallback_note: 'Stattdessen wird die Feed-Beschreibung angezeigt.', reason: 'Grund', original: 'Original',
     },
     diag_title: '⚠️ Sensor-Diagnose',
     diag_footer: 'Fehlende Sensoren müssen als <code>command_line</code>-Sensoren in <b>configuration.yaml</b> erstellt werden.',
@@ -201,7 +201,7 @@ const RSS_LOCALES = {
       auto_note: "Riassunto automatico: le frasi principali dell'articolo.",
       partial_note: 'Disponibile solo la descrizione dichiarata dal sito.',
       translated: 'Tradotto automaticamente', not_translated: 'Testo originale (traduzione non disponibile)',
-      unavailable: 'Riassunto non disponibile', fallback_note: 'Mostro la descrizione del feed.', reason: 'Motivo',
+      unavailable: 'Riassunto non disponibile', fallback_note: 'Mostro la descrizione del feed.', reason: 'Motivo', original: 'Originale',
     },
     diag_title: '⚠️ Diagnostica sensori',
     diag_footer: 'I sensori mancanti devono essere creati come sensori <code>command_line</code> in <b>configuration.yaml</b>.',
@@ -839,6 +839,8 @@ class RssNewsCard extends HTMLElement {
       .rss-sum-body{padding:8px 18px 14px;overflow-y:auto;-webkit-overflow-scrolling:touch;font-size:14px;line-height:1.5;flex:1;min-height:60px;}
       .rss-sum-list{margin:6px 0 0;padding-left:18px;}
       .rss-sum-list li{margin-bottom:9px;}
+      .rss-sum-orig-title{margin-top:14px;padding-top:10px;border-top:1px dashed var(--divider-color,rgba(255,255,255,0.15));font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--secondary-text-color,#aaa);}
+      .rss-sum-list-orig{font-style:italic;font-size:13px;color:var(--secondary-text-color,#aaa);}
       .rss-sum-note{font-size:11px;color:var(--secondary-text-color,#aaa);opacity:0.85;margin-top:10px;}
       .rss-sum-loading{color:var(--secondary-text-color,#aaa);padding:8px 0;}
       .rss-sum-unavail{font-weight:600;margin-bottom:8px;}
@@ -863,14 +865,38 @@ class RssNewsCard extends HTMLElement {
     if (this._summaryOverlay) { this._summaryOverlay.remove(); this._summaryOverlay = null; }
   }
 
+  // Nome della lingua nella lingua dell'interfaccia (es. "en" -> "inglese").
+  // Intl.DisplayNames c'è in tutti i browser recenti; se manca o non conosce
+  // il codice, si mostra il codice stesso in maiuscolo.
+  _langName(code) {
+    const c = String(code || '').trim();
+    if (!c) return '';
+    try {
+      const n = new Intl.DisplayNames([this._getLang()], { type: 'language' }).of(c);
+      if (n && n !== c) return n;
+    } catch { /* ripiega sul codice */ }
+    return c.toUpperCase();
+  }
+
   _summaryBodyHtml(data, t) {
-    const items = (data.sentences || []).map(s => `<li>${this._escHtml(s)}</li>`).join('');
+    const list = (arr, cls) => `<ul class="rss-sum-list${cls ? ' ' + cls : ''}">`
+      + (arr || []).map(s => `<li>${this._escHtml(s)}</li>`).join('') + '</ul>';
+    // Prima il riassunto (tradotto, se l'articolo non era in italiano)...
+    let html = list(data.sentences);
+    // ...poi, se c'è stata una traduzione, le stesse frasi nella lingua
+    // originale. Con un server più vecchio che non le invia, la sezione
+    // semplicemente non compare.
+    const orig = Array.isArray(data.sentences_original) ? data.sentences_original : [];
+    if (data.translated && orig.length) {
+      const name = this._langName(data.lang);
+      html += `<div class="rss-sum-orig-title">${this._escHtml(t.original)}${name ? ` (${this._escHtml(name)})` : ''}</div>`
+        + list(orig, 'rss-sum-list-orig');
+    }
     const notes = [];
     notes.push(data.partial || data.source === 'meta' ? t.partial_note : t.auto_note);
     if (data.translated) notes.push(t.translated);
     else if (data.lang && data.lang !== 'it' && data.translation_warning) notes.push(t.not_translated);
-    return `<ul class="rss-sum-list">${items}</ul>`
-      + `<div class="rss-sum-note">${notes.map(n => this._escHtml(n)).join(' · ')}</div>`;
+    return html + `<div class="rss-sum-note">${notes.map(n => this._escHtml(n)).join(' · ')}</div>`;
   }
 
   // Se il riassunto non si può ottenere (sito che blocca, paywall, server non
