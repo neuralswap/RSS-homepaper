@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.20.0 · build 2026-09-28-02';
+const CARD_VERSION = 'v1.20.1 · build 2026-09-28-03';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -45,7 +45,7 @@ const RSS_LOCALES = {
       auto_note: 'Automatic summary: the key sentences of the article.',
       partial_note: 'Only the description declared by the site was available.',
       translated: 'Translated automatically', not_translated: 'Original text (translation unavailable)',
-      unavailable: 'Summary not available', fallback_note: 'Showing the feed description instead.', reason: 'Reason', original: 'Original',
+      unavailable: 'Summary not available', fallback_note: 'Showing the feed description instead.', reason: 'Reason', original: 'Original', err_interrupted: 'The server answers, but the request for this article was interrupted (timeout or server error)', err_unreachable: 'Server not reachable from this app (network, CORS or missing file)',
     },
     diag_title: '⚠️ Sensor diagnostics',
     diag_footer: 'Missing sensors must be created as <code>command_line</code> sensors in <b>configuration.yaml</b>.',
@@ -97,7 +97,7 @@ const RSS_LOCALES = {
       auto_note: 'Automatikus összefoglaló: a cikk fő mondatai.',
       partial_note: 'Csak az oldal által megadott leírás volt elérhető.',
       translated: 'Automatikusan lefordítva', not_translated: 'Eredeti szöveg (a fordítás nem érhető el)',
-      unavailable: 'Az összefoglaló nem érhető el', fallback_note: 'A hírcsatorna leírását mutatom.', reason: 'Ok', original: 'Eredeti',
+      unavailable: 'Az összefoglaló nem érhető el', fallback_note: 'A hírcsatorna leírását mutatom.', reason: 'Ok', original: 'Eredeti', err_interrupted: 'A szerver válaszol, de a cikkre vonatkozó kérés megszakadt (időtúllépés vagy szerverhiba)', err_unreachable: 'A szerver nem érhető el ebből az alkalmazásból (hálózat, CORS vagy hiányzó fájl)',
     },
     diag_title: '⚠️ Szenzor diagnosztika',
     diag_footer: 'A hibás szenzorokat <code>command_line</code> szenzorokként kell létrehozni a <b>configuration.yaml</b>-ban.',
@@ -149,7 +149,7 @@ const RSS_LOCALES = {
       auto_note: 'Automatische Zusammenfassung: die wichtigsten Sätze des Artikels.',
       partial_note: 'Nur die von der Seite angegebene Beschreibung war verfügbar.',
       translated: 'Automatisch übersetzt', not_translated: 'Originaltext (Übersetzung nicht verfügbar)',
-      unavailable: 'Zusammenfassung nicht verfügbar', fallback_note: 'Stattdessen wird die Feed-Beschreibung angezeigt.', reason: 'Grund', original: 'Original',
+      unavailable: 'Zusammenfassung nicht verfügbar', fallback_note: 'Stattdessen wird die Feed-Beschreibung angezeigt.', reason: 'Grund', original: 'Original', err_interrupted: 'Der Server antwortet, aber die Anfrage für diesen Artikel wurde unterbrochen (Timeout oder Serverfehler)', err_unreachable: 'Server von dieser App aus nicht erreichbar (Netzwerk, CORS oder fehlende Datei)',
     },
     diag_title: '⚠️ Sensor-Diagnose',
     diag_footer: 'Fehlende Sensoren müssen als <code>command_line</code>-Sensoren in <b>configuration.yaml</b> erstellt werden.',
@@ -201,7 +201,7 @@ const RSS_LOCALES = {
       auto_note: "Riassunto automatico: le frasi principali dell'articolo.",
       partial_note: 'Disponibile solo la descrizione dichiarata dal sito.',
       translated: 'Tradotto automaticamente', not_translated: 'Testo originale (traduzione non disponibile)',
-      unavailable: 'Riassunto non disponibile', fallback_note: 'Mostro la descrizione del feed.', reason: 'Motivo', original: 'Originale',
+      unavailable: 'Riassunto non disponibile', fallback_note: 'Mostro la descrizione del feed.', reason: 'Motivo', original: 'Originale', err_interrupted: "Il server risponde, ma la richiesta per questo articolo è stata interrotta (timeout o errore sul server)", err_unreachable: 'Server non raggiungibile da questa app (rete, CORS o file mancante)',
     },
     diag_title: '⚠️ Diagnostica sensori',
     diag_footer: 'I sensori mancanti devono essere creati come sensori <code>command_line</code> in <b>configuration.yaml</b>.',
@@ -809,6 +809,22 @@ class RssNewsCard extends HTMLElement {
     return base + SUMMARIZE_FILENAME;
   }
 
+  // true se summarize.php risponde a una richiesta senza articolo (è leggera e
+  // restituisce un errore JSON con gli header CORS): qualsiasi risposta
+  // leggibile significa "server raggiungibile e CORS ok".
+  async _pingSummarize(base, token) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 6000);
+    try {
+      await fetch(base + (base.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token), { signal: ctrl.signal });
+      return true;
+    } catch {
+      return false;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async _fetchSummary(articleUrl, signal) {
     const cached = this._summaryCache.get(articleUrl);
     if (cached) return cached;
@@ -817,7 +833,20 @@ class RssNewsCard extends HTMLElement {
     const full = base + (base.includes('?') ? '&' : '?')
       + 'token=' + encodeURIComponent(token)
       + '&url=' + encodeURIComponent(articleUrl);
-    const res = await fetch(full, { signal });
+    let res;
+    try {
+      res = await fetch(full, { signal });
+    } catch (e) {
+      if (e && e.name === 'AbortError') throw e;
+      // Il browser dice solo "Failed to fetch" sia se il server non si vede
+      // (rete, CORS, file mancante) sia se la richiesta parte ma la
+      // connessione cade a metà (timeout, errore sul server). Le due cause
+      // si distinguono con una richiesta leggera allo stesso endpoint: se
+      // risponde, il server c'è e il problema è la richiesta vera.
+      const t = this._t().summary;
+      const reachable = await this._pingSummarize(base, token);
+      throw new Error(reachable ? t.err_interrupted : t.err_unreachable);
+    }
     let data;
     try { data = await res.json(); } catch { throw new Error('Risposta non JSON dal server (' + res.status + ')'); }
     if (!res.ok || !data.ok) throw new Error(data.error || ('HTTP ' + res.status));
