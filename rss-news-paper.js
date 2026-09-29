@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.20.3 · build 2026-09-28-05';
+const CARD_VERSION = 'v1.21.1 · build 2026-09-28-07';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -277,6 +277,14 @@ class RssNewsCard extends HTMLElement {
     this._initialized = false;
     this._selectedSource = 'all';
     this._selectedTopic = 'all';
+    // Filtri e posizione di scroll sopravvivono a un ricaricamento completo
+    // della pagina (es. Android che scarica l'app dalla memoria mentre è in
+    // background e la ricarica al ritorno): vengono salvati in localStorage
+    // e riletti una sola volta all'avvio di QUESTA istanza della card, per
+    // non sovrascrivere in loop una scelta che l'utente sta facendo ora.
+    this._filtersRestored = false;
+    this._scrollRestored = false;
+    this._scrollSaveTimer = null;
     // Popup riassunto: cache in memoria (url -> risposta) per non richiedere
     // due volte lo stesso articolo nella stessa sessione, richiesta in corso
     // (per poterla annullare alla chiusura) e popup aperto.
@@ -349,6 +357,7 @@ class RssNewsCard extends HTMLElement {
       feed_admin_url:   config.feed_admin_url || DEFAULT_FEED_ADMIN_BASE_URL,
       feed_admin_token: config.feed_admin_token || '',
     };
+    this._restoreFiltersOnce();
     this._initialized = false;
     this._render();
     // Apply dynamic properties immediately after render
@@ -1104,6 +1113,28 @@ class RssNewsCard extends HTMLElement {
       </ha-card>`;
     this._initialized = true;
 
+    // Salva la posizione di scroll mentre l'utente scorre (con un piccolo
+    // debounce: non ha senso scrivere su localStorage ad ogni pixel). Il
+    // listener va riattaccato qui perché _render() sostituisce tutto
+    // l'innerHTML della card, quindi anche il nodo .rss-scroll è nuovo.
+    const scrollElForSave = this.querySelector('.rss-scroll');
+    if (scrollElForSave) {
+      scrollElForSave.addEventListener('scroll', () => {
+        clearTimeout(this._scrollSaveTimer);
+        this._scrollSaveTimer = setTimeout(() => {
+          const anchor = this._findScrollAnchor(scrollElForSave);
+          // scrollTop resta salvato come ripiego, per quando la notizia
+          // "ancora" non si trova più (bloccata nel frattempo, o cache del
+          // server aggiornata prima che la card si riaprisse).
+          this._savePersistedState({
+            scrollTop: scrollElForSave.scrollTop,
+            anchorLink: anchor ? anchor.link : null,
+            anchorOffset: anchor ? anchor.offset : 0,
+          });
+        }, 400);
+      }, { passive: true });
+    }
+
     const filterBtn = this.querySelector('.rss-source-filter-btn');
     const filterMenu = this.querySelector('.rss-source-filter-menu');
     if (filterBtn && filterMenu) {
@@ -1202,6 +1233,86 @@ class RssNewsCard extends HTMLElement {
   // Selezione di una fonte dal menu a tendina personalizzato: aggiorna lo
   // stato, ricostruisce la lista articoli, riporta lo scroll in cima e
   // forza un refresh immediato dei colori fonte.
+  // Chiave di storage univoca per QUESTA card: incorpora l'entità e il
+  // titolo, così più card RSS nella stessa dashboard (fonti diverse) non si
+  // pestano i piedi a vicenda salvando sotto la stessa chiave.
+  // Trova la notizia "in cima" alla zona visibile del contenitore
+  // scrollabile in questo momento, e quanto siamo scesi oltre il suo inizio
+  // (in pixel): è quello che permette, al ripristino, di rimettere lo
+  // scroll ESATTAMENTE come prima, non solo "vicino".
+  _findScrollAnchor(scrollEl) {
+    const rows = Array.from(scrollEl.querySelectorAll('.rss-article-row'));
+    if (!rows.length) return null;
+    const containerTop = scrollEl.getBoundingClientRect().top;
+    const scrollTop = scrollEl.scrollTop;
+    let best = null;
+    for (const row of rows) {
+      // Posizione della riga dentro il contenuto scrollabile, indipendente
+      // da eventuali contenitori intermedi non scrollabili tra .rss-scroll
+      // e la riga stessa.
+      const relTop = row.getBoundingClientRect().top - containerTop + scrollTop;
+      if (relTop <= scrollTop + 1) {
+        best = { link: row.dataset.rssUrl, offset: scrollTop - relTop };
+      } else {
+        break; // le righe sono in ordine: la prima oltre lo scrollTop chiude la ricerca
+      }
+    }
+    return best;
+  }
+
+  // Ricalcola la stessa posizione dopo che gli articoli sono stati
+  // ridisegnati: cerca la riga con lo stesso link e riporta lo scroll a
+  // quell'altezza meno lo scostamento salvato.
+  _scrollToAnchor(scrollEl, anchorLink, anchorOffset) {
+    if (!anchorLink) return false;
+    const rows = Array.from(scrollEl.querySelectorAll('.rss-article-row'));
+    const row = rows.find(r => r.dataset.rssUrl === anchorLink);
+    if (!row) return false;
+    const containerTop = scrollEl.getBoundingClientRect().top;
+    const relTop = row.getBoundingClientRect().top - containerTop + scrollEl.scrollTop;
+    // anchorOffset è "quanto eravamo scesi OLTRE l'inizio della riga"
+    // (scrollTop_salvato - relTop_salvato): per tornare alla stessa
+    // posizione relativa si somma, non si sottrae.
+    scrollEl.scrollTop = Math.max(0, relTop + (anchorOffset || 0));
+    return true;
+  }
+
+  _storageKey() {
+    const id = (this._config.entity || '') + '|' + (this._config.title || '');
+    return 'rss-news-card:' + id;
+  }
+
+  // localStorage può non essere disponibile (navigazione privata, quota
+  // esaurita, policy del browser): ogni accesso è avvolto in try/catch e un
+  // fallimento qui non deve MAI impedire alla card di funzionare, solo far
+  // sì che filtri e scroll non vengano ricordati.
+  _loadPersistedState() {
+    try {
+      const raw = window.localStorage.getItem(this._storageKey());
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  _savePersistedState(patch) {
+    try {
+      const current = this._loadPersistedState() || {};
+      window.localStorage.setItem(this._storageKey(), JSON.stringify(Object.assign(current, patch)));
+    } catch { /* niente di grave: si ripristina solo il default */ }
+  }
+
+  // Chiamato una sola volta, da setConfig(), PRIMA del primo render: così la
+  // prima cosa che si vede è già filtrata come l'utente l'aveva lasciata,
+  // senza un lampo iniziale con "Tutte le fonti" seguito dal filtro giusto.
+  _restoreFiltersOnce() {
+    if (this._filtersRestored) return;
+    this._filtersRestored = true;
+    const saved = this._loadPersistedState();
+    if (saved && typeof saved.selectedSource === 'string') this._selectedSource = saved.selectedSource;
+    if (saved && typeof saved.selectedTopic === 'string') this._selectedTopic = saved.selectedTopic;
+  }
+
   _selectSource(value) {
     this._selectedSource = value;
     const menu = this.querySelector('.rss-source-filter-menu');
@@ -1217,6 +1328,7 @@ class RssNewsCard extends HTMLElement {
     // così un cambio colore appena salvato nell'editor si vede subito
     // interagendo col menu, senza aspettare il timer in background.
     this._loadSourceColors(true);
+    this._savePersistedState({ selectedSource: value });
   }
 
   _populateSourceFilter() {
@@ -1335,6 +1447,7 @@ class RssNewsCard extends HTMLElement {
     this._updateContent(this._articles || [], JSON.parse(this._lastIssuesJson || '[]'));
     const scrollEl = this.querySelector('.rss-scroll');
     if (scrollEl) scrollEl.scrollTop = 0;
+    this._savePersistedState({ selectedTopic: value });
   }
 
   // Costruisce l'elenco argomenti a partire da TUTTI gli articoli correnti
@@ -1537,6 +1650,33 @@ class RssNewsCard extends HTMLElement {
         });
       });
 
+    }
+
+    // Ripristina lo scroll salvato SOLO alla primissima volta che arrivano
+    // articoli veri in questa istanza: dopo un ricaricamento completo della
+    // pagina la card riparte da zero (this._scrollRestored è di nuovo
+    // false), ma se è solo un aggiornamento periodico dei dati non si vuole
+    // riportare indietro lo scroll mentre l'utente sta leggendo altro più in
+    // basso. requestAnimationFrame aspetta che il browser abbia calcolato
+    // l'altezza reale della nuova lista prima di impostare scrollTop.
+    if (!this._scrollRestored && filteredArticles.length > 0) {
+      this._scrollRestored = true;
+      const saved = this._loadPersistedState();
+      const savedTop = saved && typeof saved.scrollTop === 'number' ? saved.scrollTop : 0;
+      const anchorLink = saved && saved.anchorLink;
+      if (anchorLink || savedTop > 0) {
+        requestAnimationFrame(() => {
+          const el = this.querySelector('.rss-scroll');
+          if (!el) return;
+          // Prova prima a ritrovare la STESSA notizia (precisa anche se nel
+          // frattempo ne sono arrivate di nuove più in alto); se non la trova
+          // più (bloccata, o non ancora nella cache riletta), usa il pixel
+          // salvato come ripiego, così non si perde comunque la posizione.
+          if (!this._scrollToAnchor(el, anchorLink, saved.anchorOffset)) {
+            el.scrollTop = savedTop;
+          }
+        });
+      }
     }
   }
 
