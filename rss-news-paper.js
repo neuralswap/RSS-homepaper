@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.21.2 · build 2026-09-28-08';
+const CARD_VERSION = 'v1.22.0 · build 2026-09-28-09';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -27,6 +27,9 @@ const BLOCK_PATHS_FILENAME = 'block_paths.php';
 // Endpoint del popup "riassunto" (click su una notizia): scarica l'articolo
 // lato server, ne estrae le frasi principali e le traduce se serve.
 const SUMMARIZE_FILENAME = 'summarize.php';
+// Pagina di scelta per importare fonti da un file OPML (sta accanto a
+// sources_admin.php): l'editor la apre passando token e indirizzo OPML.
+const OPML_IMPORT_PAGE = 'opml_import.html';
 // Oltre questo tempo dall'ultima volta che si è scrollato, la posizione
 // salvata non viene più ripristinata e la lista riparte dall'inizio: le
 // notizie sono molte e dopo qualche ora non ha senso tornare dove si era.
@@ -84,6 +87,10 @@ const RSS_LOCALES = {
       feed_sources:      'RSS feed sources (server)',
       feed_add:          '+ Add feed',
       feed_color:        'Source color (used for the category badge)',
+      opml_url:          'Import sources from an OPML file (address)',
+      opml_open:         'Open selection page',
+      opml_hint:         'Opens a page where you choose which feeds to add, with a preview of their articles.',
+      opml_need_token:   'Enter the feed admin token first.',
       feed_loading:      'Loading feeds…',
       feed_load_error:   'Could not load feeds',
       feed_set_url_first:'Set the admin endpoint URL to manage feeds.',
@@ -136,6 +143,10 @@ const RSS_LOCALES = {
       feed_sources:        'RSS források (szerver)',
       feed_add:            '+ Forrás hozzáadása',
       feed_color:          'Forrás színe (a kategória jelöléséhez)',
+      opml_url:            'Források importálása OPML fájlból (cím)',
+      opml_open:           'Kiválasztó oldal megnyitása',
+      opml_hint:           'Megnyit egy oldalt, ahol kiválaszthatod a hozzáadandó csatornákat, cikkelőnézettel.',
+      opml_need_token:     'Először add meg a források adminisztrációs tokenjét.',
       feed_loading:        'Források betöltése…',
       feed_load_error:     'Nem sikerült betölteni a forrásokat',
       feed_set_url_first:  'Add meg a végpont URL-jét a források kezeléséhez.',
@@ -188,6 +199,10 @@ const RSS_LOCALES = {
       feed_sources:        'RSS-Quellen (Server)',
       feed_add:            '+ Quelle hinzufügen',
       feed_color:          'Quellfarbe (für das Kategorie-Label)',
+      opml_url:            'Quellen aus einer OPML-Datei importieren (Adresse)',
+      opml_open:           'Auswahlseite öffnen',
+      opml_hint:           'Öffnet eine Seite, auf der du die hinzuzufügenden Feeds auswählst, mit Vorschau der Artikel.',
+      opml_need_token:     'Gib zuerst das Feed-Admin-Token ein.',
       feed_loading:        'Quellen werden geladen…',
       feed_load_error:     'Quellen konnten nicht geladen werden',
       feed_set_url_first:  'Admin-Endpunkt-URL festlegen, um Quellen zu verwalten.',
@@ -240,6 +255,10 @@ const RSS_LOCALES = {
       feed_sources:         'Fonti RSS (server)',
       feed_add:             '+ Aggiungi fonte RSS',
       feed_color:           "Colore della fonte (usato per l'etichetta categoria)",
+      opml_url:             'Importa fonti da un file OPML (indirizzo)',
+      opml_open:            'Apri pagina di selezione',
+      opml_hint:            'Si apre una pagina dove scegli quali feed aggiungere, con anteprima degli articoli.',
+      opml_need_token:      'Inserisci prima il token amministrazione fonti.',
       feed_loading:         'Caricamento fonti…',
       feed_load_error:      'Impossibile caricare le fonti',
       feed_set_url_first:   'Imposta l\'URL dell\'endpoint per gestire le fonti.',
@@ -1791,6 +1810,13 @@ class RssNewsCardEditor extends HTMLElement {
             <button class="rss-verify" id="feed-new-verify" title="${t.ed.feed_verify}">🔍</button>
             <button class="rss-add" id="feed-new-add">${t.ed.feed_add}</button>
           </div>
+
+          <label style="margin-top:14px;">${t.ed.opml_url}</label>
+          <div class="rss-src-row" style="flex-wrap:wrap;">
+            <input type="text" id="ed-opml-url" placeholder="https://github.com/…/feeds.opml" value="${(c.opml_url || '').replace(/"/g, '&quot;')}" style="flex:1 1 180px;min-width:0;"/>
+            <button class="rss-add" id="ed-opml-open">${t.ed.opml_open}</button>
+          </div>
+          <div id="ed-opml-status" style="font-size:11px;opacity:0.7;margin-top:4px;">${t.ed.opml_hint}</div>
         </div>
 
         <label>${t.ed.card_height}</label>
@@ -1998,6 +2024,21 @@ class RssNewsCardEditor extends HTMLElement {
       feedAddBtn.addEventListener('click', () => this._addFeedSource());
     }
 
+    // Importazione da OPML: l'indirizzo si salva nella configurazione della
+    // card; il bottone apre la pagina di scelta (opml_import.html).
+    const opmlUrlEl = this.querySelector('#ed-opml-url');
+    if (opmlUrlEl) {
+      opmlUrlEl.addEventListener('change', () => this._upd('opml_url', opmlUrlEl.value.trim()));
+    }
+    const opmlOpenBtn = this.querySelector('#ed-opml-open');
+    if (opmlOpenBtn) {
+      opmlOpenBtn.addEventListener('click', () => {
+        // Vale anche se il campo "change" non è ancora scattato (clic subito dopo aver incollato).
+        if (opmlUrlEl && opmlUrlEl.value.trim() !== (this._config.opml_url || '')) this._upd('opml_url', opmlUrlEl.value.trim());
+        this._openOpmlImport();
+      });
+    }
+
     const feedNewVerifyBtn = this.querySelector('#feed-new-verify');
     if (feedNewVerifyBtn) {
       feedNewVerifyBtn.addEventListener('click', () => {
@@ -2018,6 +2059,40 @@ class RssNewsCardEditor extends HTMLElement {
     base = base.replace(new RegExp(FEED_ADMIN_FILENAME.replace('.', '\\.') + '/?$'), '');
     if (!/\/$/.test(base)) base += '/'; // assicura lo slash finale prima del nome file
     return base + FEED_ADMIN_FILENAME;
+  }
+
+  // Indirizzo della pagina di scelta: stessa cartella di sources_admin.php.
+  // Token e indirizzo OPML viaggiano nella parte dopo "#": il browser non la
+  // invia mai al server, quindi non finisce nei log di Apache né in nessun
+  // "Referer". La pagina poi la toglie dall'indirizzo visibile.
+  _opmlImportPageUrl() {
+    const full = this._feedAdminFullUrl();
+    if (!full) return '';
+    const page = full.replace(new RegExp(FEED_ADMIN_FILENAME.replace('.', '\\.') + '$'), OPML_IMPORT_PAGE);
+    const params = new URLSearchParams();
+    const token = (this._config.feed_admin_token || '').trim();
+    const opml = (this._config.opml_url || '').trim();
+    if (token) params.set('token', token);
+    if (opml) params.set('opml', opml);
+    params.set('lang', this._getLang());
+    return page + '#' + params.toString();
+  }
+
+  _openOpmlImport() {
+    const status = this.querySelector('#ed-opml-status');
+    const t = this._t();
+    const token = (this._config.feed_admin_token || '').trim();
+    if (!token) {
+      if (status) { status.textContent = t.ed.opml_need_token; status.style.color = 'var(--error-color,#f44336)'; status.style.opacity = '1'; }
+      return false;
+    }
+    if (status) { status.textContent = t.ed.opml_hint; status.style.color = ''; status.style.opacity = '0.7'; }
+    const url = this._opmlImportPageUrl();
+    if (!url) return false;
+    // Nell'app Android si usa il browser dell'app, come per gli articoli.
+    if (window.externalApp?.openExternalUrl) { window.externalApp.openExternalUrl(url); return true; }
+    window.open(url, '_blank', 'noopener');
+    return true;
   }
 
   async _feedApi(body) {
@@ -2273,6 +2348,7 @@ class RssNewsCardEditor extends HTMLElement {
     set('#ed-desc-color-text',          c.desc_color);
     set('#ed-feed-admin-url',           c.feed_admin_url);
     set('#ed-feed-admin-token',         c.feed_admin_token);
+    set('#ed-opml-url',                 c.opml_url);
     setChk('#tog-source', c.show_source !== false);
     setChk('#tog-date',   c.show_date !== false);
     setChk('#tog-desc',   c.show_description !== false);
