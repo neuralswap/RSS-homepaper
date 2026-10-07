@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.21.1 · build 2026-09-28-07';
+const CARD_VERSION = 'v1.21.2 · build 2026-09-28-08';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -27,6 +27,11 @@ const BLOCK_PATHS_FILENAME = 'block_paths.php';
 // Endpoint del popup "riassunto" (click su una notizia): scarica l'articolo
 // lato server, ne estrae le frasi principali e le traduce se serve.
 const SUMMARIZE_FILENAME = 'summarize.php';
+// Oltre questo tempo dall'ultima volta che si è scrollato, la posizione
+// salvata non viene più ripristinata e la lista riparte dall'inizio: le
+// notizie sono molte e dopo qualche ora non ha senso tornare dove si era.
+// Vale solo per lo scroll: fonte e argomento scelti restano ricordati.
+const SCROLL_MEMORY_MAX_AGE_MS = 2 * 60 * 60 * 1000;
 // Quanto tenere premuto prima che scatti il long-press (ms). Sotto questa
 // soglia il gesto viene trattato come un normale tap/click che apre l'articolo.
 const LONG_PRESS_MS = 550;
@@ -1130,6 +1135,7 @@ class RssNewsCard extends HTMLElement {
             scrollTop: scrollElForSave.scrollTop,
             anchorLink: anchor ? anchor.link : null,
             anchorOffset: anchor ? anchor.offset : 0,
+            scrollSavedAt: Date.now(),
           });
         }, 400);
       }, { passive: true });
@@ -1662,8 +1668,12 @@ class RssNewsCard extends HTMLElement {
     if (!this._scrollRestored && filteredArticles.length > 0) {
       this._scrollRestored = true;
       const saved = this._loadPersistedState();
-      const savedTop = saved && typeof saved.scrollTop === 'number' ? saved.scrollTop : 0;
-      const anchorLink = saved && saved.anchorLink;
+      // Posizione troppo vecchia (o senza data, come nelle versioni
+      // precedenti): si ignora e si parte dall'inizio.
+      const age = saved && typeof saved.scrollSavedAt === 'number' ? Date.now() - saved.scrollSavedAt : Infinity;
+      const fresh = age >= 0 && age <= SCROLL_MEMORY_MAX_AGE_MS;
+      const savedTop = fresh && typeof saved.scrollTop === 'number' ? saved.scrollTop : 0;
+      const anchorLink = fresh ? saved.anchorLink : null;
       if (anchorLink || savedTop > 0) {
         requestAnimationFrame(() => {
           const el = this.querySelector('.rss-scroll');
