@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.23.5 · build 2026-10-08-08';
+const CARD_VERSION = 'v1.24.0 · build 2026-10-08-09';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -123,6 +123,7 @@ const RSS_LOCALES = {
       tr_net_mixed:      'Home Assistant is open over HTTPS but the news server is HTTP: the browser blocks the request (mixed content).',
       tr_testing_s:      'Translating… {s} s',
       tr_stats:          ' (model loading {load} s, {tps} tokens/s)',
+      tr_fallback_ollama: 'If Google is exhausted, use Ollama',
       tr_threads:        'CPU threads (0 = automatic)',
       tr_threads_hint:   'If another add-on (e.g. Frigate) uses the CPU, try fewer threads than the free cores (2, 3…) and press "Try a translation": compare the tokens/s.',
       tr_stats2:         ' (model loading {load} s, reading the text {prompt} s, writing {tps} tokens/s)',
@@ -216,6 +217,7 @@ const RSS_LOCALES = {
       tr_net_mixed:        'A Home Assistant HTTPS-en van megnyitva, a hírszerver viszont HTTP: a böngésző blokkolja a kérést (vegyes tartalom).',
       tr_testing_s:        'Fordítás… {s} mp',
       tr_stats:            ' (modell betöltése {load} mp, {tps} token/mp)',
+      tr_fallback_ollama:  'Ha a Google kimerült, használja az Ollamát',
       tr_threads:          'CPU-szálak (0 = automatikus)',
       tr_threads_hint:     'Ha másik kiegészítő (pl. Frigate) is használja a CPU-t, próbálj a szabad magoknál kevesebb szálat (2, 3…), majd nyomd meg a „Fordítás kipróbálása” gombot: hasonlítsd össze a token/mp értéket.',
       tr_stats2:           ' (modell betöltése {load} mp, szöveg beolvasása {prompt} mp, írás {tps} token/mp)',
@@ -309,6 +311,7 @@ const RSS_LOCALES = {
       tr_net_mixed:        'Home Assistant ist über HTTPS geöffnet, der News-Server aber nur über HTTP: Der Browser blockiert die Anfrage (Mixed Content).',
       tr_testing_s:        'Übersetze… {s} s',
       tr_stats:            ' (Modell laden {load} s, {tps} Token/s)',
+      tr_fallback_ollama:  'Wenn Google erschöpft ist, Ollama verwenden',
       tr_threads:          'CPU-Threads (0 = automatisch)',
       tr_threads_hint:     'Wenn ein anderes Add-on (z. B. Frigate) die CPU nutzt, probiere weniger Threads als freie Kerne (2, 3 …) und drücke „Übersetzung testen“: Vergleiche die Token/s.',
       tr_stats2:           ' (Modell laden {load} s, Text lesen {prompt} s, Schreiben {tps} Token/s)',
@@ -402,6 +405,7 @@ const RSS_LOCALES = {
       tr_net_mixed:         'Home Assistant è aperto in HTTPS ma il server delle notizie è in HTTP: il browser blocca la richiesta (contenuto misto).',
       tr_testing_s:         'Traduco… {s} s',
       tr_stats:             ' (caricamento del modello {load} s, {tps} token/s)',
+      tr_fallback_ollama:   'Se Google è esaurito, usa Ollama',
       tr_threads:           'Thread CPU (0 = automatico)',
       tr_threads_hint:      'Se un altro add-on (ad esempio Frigate) usa la CPU, prova meno thread dei core liberi (2, 3…) e premi "Prova una traduzione": confronta i token/s.',
       tr_stats2:            ' (caricamento del modello {load} s, lettura del testo {prompt} s, scrittura {tps} token/s)',
@@ -2002,6 +2006,7 @@ class RssNewsCardEditor extends HTMLElement {
             <option value="google">${t.ed.tr_google}</option>
             <option value="ollama">${t.ed.tr_ollama}</option>
           </select>
+          <label id="ed-tr-fbo-row" style="display:flex;gap:8px;align-items:center;margin-top:8px;"><input type="checkbox" id="ed-tr-fallback-ollama"/> ${t.ed.tr_fallback_ollama}</label>
           <div id="ed-tr-ollama" hidden style="margin-top:8px;">
             <label>${t.ed.tr_host}</label>
             <div class="rss-src-row" style="flex-wrap:wrap;">
@@ -2017,7 +2022,7 @@ class RssNewsCardEditor extends HTMLElement {
             <label style="margin-top:8px;">${t.ed.tr_threads}</label>
             <div class="rss-src-row"><input type="number" id="ed-tr-threads" value="0" min="0" max="64" style="flex:0 0 90px;min-width:0;"/></div>
             <div style="font-size:11px;opacity:0.7;margin-top:4px;">${t.ed.tr_threads_hint}</div>
-            <label style="display:flex;gap:8px;align-items:center;margin-top:8px;"><input type="checkbox" id="ed-tr-fallback"/> ${t.ed.tr_fallback}</label>
+            <label id="ed-tr-fbg-row" style="display:flex;gap:8px;align-items:center;margin-top:8px;"><input type="checkbox" id="ed-tr-fallback"/> ${t.ed.tr_fallback}</label>
             <div class="rss-src-row" style="margin-top:8px;"><button class="rss-add" id="ed-tr-test">${t.ed.tr_test}</button></div>
             <div style="font-size:11px;opacity:0.7;margin-top:6px;">${t.ed.tr_hint}</div>
           </div>
@@ -2243,6 +2248,8 @@ class RssNewsCardEditor extends HTMLElement {
     // tradurre sono gli script PHP; l'editor le legge e le salva da lì.
     const trProv = this.querySelector('#ed-tr-provider');
     if (trProv) trProv.addEventListener('change', () => this._trToggle());
+    const trFbo = this.querySelector('#ed-tr-fallback-ollama');
+    if (trFbo) trFbo.addEventListener('change', () => this._trToggle());
     const trBind = (id, fn) => { const el = this.querySelector(id); if (el) el.addEventListener('click', fn); };
     trBind('#ed-tr-check', () => this._trCheck());
     trBind('#ed-tr-test', () => this._trTest());
@@ -2328,10 +2335,19 @@ class RssNewsCardEditor extends HTMLElement {
   _trFmt(tpl, vars) { return String(tpl).replace(/\{(\w+)\}/g, (m, k) => (vars[k] !== undefined ? vars[k] : m)); }
   _trTime(ts) { return new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
 
+  // Con "Google" i campi di Ollama servono solo se Ollama è il suo ripiego; con "Ollama" servono sempre, e
+  // c'è la scelta inversa (ripiegare su Google). I due interruttori non hanno senso insieme.
   _trToggle() {
     const prov = this.querySelector('#ed-tr-provider');
     const box = this.querySelector('#ed-tr-ollama');
-    if (prov && box) box.hidden = prov.value !== 'ollama';
+    const fbo = this.querySelector('#ed-tr-fallback-ollama');
+    const fboRow = this.querySelector('#ed-tr-fbo-row');
+    const fbgRow = this.querySelector('#ed-tr-fbg-row');
+    if (!prov || !box) return;
+    const google = prov.value !== 'ollama';
+    if (fboRow) fboRow.hidden = !google;
+    if (fbgRow) fbgRow.hidden = google;
+    box.hidden = google && !(fbo && fbo.checked);
   }
 
   // Riempie il menu dei modelli. Se il modello salvato non è nell'elenco lo si tiene comunque
@@ -2368,6 +2384,7 @@ class RssNewsCardEditor extends HTMLElement {
       set('#ed-tr-port', o.port || 11434);
       set('#ed-tr-threads', o.threads || 0);
       const fb = this.querySelector('#ed-tr-fallback'); if (fb) fb.checked = !!o.fallback_google;
+      const fbo = this.querySelector('#ed-tr-fallback-ollama'); if (fbo) fbo.checked = !!o.fallback_ollama;
       this._trFillModels([], o.model || '');
       this._trToggle();
       const s = d.status || {};
@@ -2392,6 +2409,7 @@ class RssNewsCardEditor extends HTMLElement {
       provider: v('#ed-tr-provider') || 'google',
       host: v('#ed-tr-host'), port: v('#ed-tr-port'), model: v('#ed-tr-model'), threads: v('#ed-tr-threads') || '0',
       fallback_google: !!(this.querySelector('#ed-tr-fallback') || {}).checked,
+      fallback_ollama: !!(this.querySelector('#ed-tr-fallback-ollama') || {}).checked,
     };
   }
 
@@ -2440,7 +2458,7 @@ class RssNewsCardEditor extends HTMLElement {
   async _trSave() {
     const t = this._t().ed; const f = this._trForm();
     try {
-      const d = await this._trApi({ action: 'save', provider: f.provider, ollama: { host: f.host, port: f.port, model: f.model, fallback_google: f.fallback_google, threads: f.threads } });
+      const d = await this._trApi({ action: 'save', provider: f.provider, ollama: { host: f.host, port: f.port, model: f.model, fallback_google: f.fallback_google, fallback_ollama: f.fallback_ollama, threads: f.threads } });
       if (!d.ok) { this._trSay(this._trFmt(t.tr_err, { msg: d.error }), true); return; }
       this._trSay(t.tr_saved);
     } catch (e) { this._trSay(this._trFmt(t.tr_err, { msg: e.message }), true); }
