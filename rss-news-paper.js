@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.23.0 · build 2026-10-08-03';
+const CARD_VERSION = 'v1.23.3 · build 2026-10-08-06';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -119,6 +119,14 @@ const RSS_LOCALES = {
       tr_o_last:         'Ollama: last translation {time} ({s} s, {model}).',
       tr_o_err:          'Ollama: last error at {time}: {msg}',
       tr_cache:          '{n} translations remembered.',
+      tr_net:            'No answer from {file}: usually the file is not on the server yet (copy it next to sources_admin.php), or PHP hit an error. Try opening this address in the browser: {url}',
+      tr_net_mixed:      'Home Assistant is open over HTTPS but the news server is HTTP: the browser blocks the request (mixed content).',
+      tr_testing_s:      'Translating… {s} s',
+      tr_stats:          ' (model loading {load} s, {tps} tokens/s)',
+      tr_loaded_yes:     'The model is in memory but generates too slowly for this computer: try a smaller one (e.g. qwen2.5:1.5b).',
+      tr_loaded_no:      'The model is not in memory yet: it is still loading (slow disk or too little RAM?). Try again in a minute.',
+      tr_testing_hint:   'The first time the model has to load into memory: it can take more than a minute, then translations are much faster.',
+      tr_timeout:        'No answer within {s} s: the model is too slow for this computer. Try a smaller model (e.g. qwen2.5:1.5b), or try again: it may already be in memory now.',
       feed_loading:      'Loading feeds…',
       feed_load_error:   'Could not load feeds',
       feed_set_url_first:'Set the admin endpoint URL to manage feeds.',
@@ -201,6 +209,14 @@ const RSS_LOCALES = {
       tr_o_last:           'Ollama: utolsó fordítás {time} ({s} mp, {model}).',
       tr_o_err:            'Ollama: utolsó hiba {time}: {msg}',
       tr_cache:            '{n} fordítás megjegyezve.',
+      tr_net:              'Nincs válasz innen: {file}: általában a fájl még nincs a szerveren (másold a sources_admin.php mellé), vagy a PHP hibát jelzett. Próbáld megnyitni a böngészőben ezt a címet: {url}',
+      tr_net_mixed:        'A Home Assistant HTTPS-en van megnyitva, a hírszerver viszont HTTP: a böngésző blokkolja a kérést (vegyes tartalom).',
+      tr_testing_s:        'Fordítás… {s} mp',
+      tr_stats:            ' (modell betöltése {load} mp, {tps} token/mp)',
+      tr_loaded_yes:       'A modell a memóriában van, de túl lassan generál ehhez a géphez: próbálj kisebbet (pl. qwen2.5:1.5b).',
+      tr_loaded_no:        'A modell még nincs a memóriában: még töltődik (lassú lemez vagy kevés RAM?). Próbáld újra egy perc múlva.',
+      tr_testing_hint:     'Első használatkor a modellnek be kell töltődnie a memóriába: ez egy percnél is tovább tarthat, utána a fordítás sokkal gyorsabb.',
+      tr_timeout:          'Nincs válasz {s} mp alatt: a modell túl lassú ehhez a géphez. Próbálj kisebb modellt (pl. qwen2.5:1.5b), vagy próbáld újra: lehet, hogy már a memóriában van.',
       feed_loading:        'Források betöltése…',
       feed_load_error:     'Nem sikerült betölteni a forrásokat',
       feed_set_url_first:  'Add meg a végpont URL-jét a források kezeléséhez.',
@@ -283,6 +299,14 @@ const RSS_LOCALES = {
       tr_o_last:           'Ollama: letzte Übersetzung {time} ({s} s, {model}).',
       tr_o_err:            'Ollama: letzter Fehler um {time}: {msg}',
       tr_cache:            '{n} Übersetzungen gespeichert.',
+      tr_net:              'Keine Antwort von {file}: meist liegt die Datei noch nicht auf dem Server (neben sources_admin.php kopieren) oder PHP hatte einen Fehler. Öffne diese Adresse im Browser: {url}',
+      tr_net_mixed:        'Home Assistant ist über HTTPS geöffnet, der News-Server aber nur über HTTP: Der Browser blockiert die Anfrage (Mixed Content).',
+      tr_testing_s:        'Übersetze… {s} s',
+      tr_stats:            ' (Modell laden {load} s, {tps} Token/s)',
+      tr_loaded_yes:       'Das Modell ist im Speicher, erzeugt aber zu langsam für diesen Rechner: Versuche ein kleineres (z. B. qwen2.5:1.5b).',
+      tr_loaded_no:        'Das Modell ist noch nicht im Speicher: Es lädt noch (langsame Platte oder zu wenig RAM?). Versuche es in einer Minute erneut.',
+      tr_testing_hint:     'Beim ersten Mal muss das Modell in den Speicher geladen werden: das kann über eine Minute dauern, danach geht es deutlich schneller.',
+      tr_timeout:          'Keine Antwort innerhalb von {s} s: Das Modell ist für diesen Rechner zu langsam. Versuche ein kleineres Modell (z. B. qwen2.5:1.5b) oder probiere es erneut: Es könnte jetzt schon im Speicher sein.',
       feed_loading:        'Quellen werden geladen…',
       feed_load_error:     'Quellen konnten nicht geladen werden',
       feed_set_url_first:  'Admin-Endpunkt-URL festlegen, um Quellen zu verwalten.',
@@ -365,6 +389,14 @@ const RSS_LOCALES = {
       tr_o_last:            'Ollama: ultima traduzione {time} ({s} s, {model}).',
       tr_o_err:             'Ollama: ultimo errore alle {time}: {msg}',
       tr_cache:             '{n} traduzioni in memoria.',
+      tr_net:               "Nessuna risposta da {file}: di solito il file non è ancora sul server (va copiato accanto a sources_admin.php) oppure PHP ha avuto un errore. Prova ad aprire questo indirizzo nel browser: {url}",
+      tr_net_mixed:         'Home Assistant è aperto in HTTPS ma il server delle notizie è in HTTP: il browser blocca la richiesta (contenuto misto).',
+      tr_testing_s:         'Traduco… {s} s',
+      tr_stats:             ' (caricamento del modello {load} s, {tps} token/s)',
+      tr_loaded_yes:        'Il modello è in memoria ma genera troppo lentamente per questo computer: prova uno più piccolo (ad esempio qwen2.5:1.5b).',
+      tr_loaded_no:         'Il modello non è ancora in memoria: sta ancora caricando (disco lento o poca RAM?). Riprova tra un minuto.',
+      tr_testing_hint:      'La prima volta il modello deve caricarsi in memoria: può servire più di un minuto, poi le traduzioni sono molto più veloci.',
+      tr_timeout:           'Nessuna risposta entro {s} s: il modello è troppo lento per questo computer. Prova un modello più piccolo (ad esempio qwen2.5:1.5b) oppure riprova: ora potrebbe essere già in memoria.',
       feed_loading:         'Caricamento fonti…',
       feed_load_error:      'Impossibile caricare le fonti',
       feed_set_url_first:   'Imposta l\'URL dell\'endpoint per gestire le fonti.',
@@ -2239,7 +2271,7 @@ class RssNewsCardEditor extends HTMLElement {
 
   // Stesso schema di _feedApi: token sia nell'intestazione sia nell'indirizzo (alcuni proxy
   // non inoltrano le intestazioni personalizzate). Ritorna sempre il JSON, anche con ok:false.
-  async _trApi(body) {
+  async _trApi(body, timeoutMs = 30000) {
     const base = this._trUrl();
     const token = (this._config.feed_admin_token || '').trim();
     if (!base || !token) throw new Error(this._t().ed.tr_need_token);
@@ -2247,7 +2279,22 @@ class RssNewsCardEditor extends HTMLElement {
     const opts = body
       ? { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-API-Token': token }, body: JSON.stringify(body) }
       : { method: 'GET', headers: { 'X-API-Token': token } };
-    const res = await fetch(url, opts);
+    let res;
+    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
+    if (ctrl) opts.signal = ctrl.signal;
+    try {
+      res = await fetch(url, opts);
+    } catch (e) {
+      if (timer) clearTimeout(timer);
+      if (e && e.name === 'AbortError') throw new Error(this._trFmt(this._t().ed.tr_timeout, { s: Math.round(timeoutMs / 1000) }));
+      // "Failed to fetch" non dice nulla. Se il file manca, Apache risponde 404 senza le
+      // intestazioni CORS e il browser lo nasconde proprio così: lo si spiega.
+      const t = this._t().ed;
+      if (typeof location !== 'undefined' && location.protocol === 'https:' && /^http:\/\//i.test(base)) throw new Error(t.tr_net_mixed);
+      throw new Error(this._trFmt(t.tr_net, { file: TRANSLATE_ADMIN_FILENAME, url: base }));
+    }
+    if (timer) clearTimeout(timer);
     let data;
     try { data = await res.json(); } catch { throw new Error('HTTP ' + res.status + ' (' + TRANSLATE_ADMIN_FILENAME + '?)'); }
     if (res.status === 404) throw new Error(TRANSLATE_ADMIN_FILENAME + ': 404');
@@ -2296,6 +2343,8 @@ class RssNewsCardEditor extends HTMLElement {
     this._trSay(t.tr_loading);
     try {
       const d = await this._trApi();
+      // Una risposta "ok:false" (es. manca lib/translate_cache.php) non deve azzerare i campi.
+      if (!d.ok) { this._trSay(this._trFmt(t.tr_err, { msg: d.error }), true); return; }
       const st = d.settings || {};
       const o = st.ollama || {};
       const set = (id, v) => { const el = this.querySelector(id); if (el) el.value = v; };
@@ -2344,12 +2393,29 @@ class RssNewsCardEditor extends HTMLElement {
   async _trTest() {
     const t = this._t().ed; const f = this._trForm();
     if (!f.model) { this._trSay(t.tr_pick_model, true); return; }
-    this._trSay(t.tr_testing);
+    // Un modello locale può metterci a lungo (soprattutto la prima volta, quando si carica in
+    // memoria): si mostra il tempo che passa, così si capisce che sta lavorando.
+    const t0 = Date.now();
+    const tick = () => {
+      const sec = Math.round((Date.now() - t0) / 1000);
+      this._trSay(this._trFmt(t.tr_testing_s, { s: sec }) + (sec >= 5 ? '\n' + t.tr_testing_hint : ''));
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
     try {
-      const d = await this._trApi({ action: 'test', host: f.host, port: f.port, model: f.model });
-      if (!d.ok) { this._trSay(this._trFmt(t.tr_err, { msg: d.error }), true); return; }
-      this._trSay(this._trFmt(t.tr_test_ok, { s: Math.round(d.ms / 100) / 10, text: d.translation }));
-    } catch (e) { this._trSay(this._trFmt(t.tr_err, { msg: e.message }), true); }
+      const d = await this._trApi({ action: 'test', host: f.host, port: f.port, model: f.model }, this._trTestTimeoutMs || 120000);
+      clearInterval(timer);
+      if (!d.ok) {
+        // Se Ollama non ha risposto in tempo il server dice se il modello è in memoria o no.
+        const hint = d.loaded === true ? '\n' + t.tr_loaded_yes : (d.loaded === false ? '\n' + t.tr_loaded_no : '');
+        this._trSay(this._trFmt(t.tr_err, { msg: d.error }) + hint, true);
+        return;
+      }
+      // Quanto è andato a caricare il modello e a che velocità genera: serve a scegliere il modello.
+      const stats = (d.load_ms != null && d.tokens_per_s != null)
+        ? this._trFmt(t.tr_stats, { load: Math.round(d.load_ms / 100) / 10, tps: d.tokens_per_s }) : '';
+      this._trSay(this._trFmt(t.tr_test_ok, { s: Math.round(d.ms / 100) / 10, text: d.translation }) + stats);
+    } catch (e) { clearInterval(timer); this._trSay(this._trFmt(t.tr_err, { msg: e.message }), true); }
   }
 
   async _trSave() {
