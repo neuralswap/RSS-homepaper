@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.22.1 · build 2026-10-08-01';
+const CARD_VERSION = 'v1.22.2 · build 2026-10-08-02';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -862,8 +862,11 @@ class RssNewsCard extends HTMLElement {
     }
   }
 
-  async _fetchSummary(articleUrl, signal) {
-    const cached = this._summaryCache.get(articleUrl);
+  // retry = true quando l'utente tocca "Riprova la traduzione": salta la copia in
+  // memoria e dice al server di fare un tentativo anche se il servizio di
+  // traduzione è in pausa (il server ne concede UNO solo).
+  async _fetchSummary(articleUrl, signal, retry = false) {
+    const cached = retry ? null : this._summaryCache.get(articleUrl);
     // Copia in memoria valida solo 5 minuti: il server ha già la sua cache su
     // disco (risponde in un attimo), e così dopo un aggiornamento del server
     // non si resta a lungo a vedere un testo vecchio finché non si ricarica la pagina.
@@ -872,7 +875,8 @@ class RssNewsCard extends HTMLElement {
     const token = (this._config.feed_admin_token || '').trim();
     const full = base + (base.includes('?') ? '&' : '?')
       + 'token=' + encodeURIComponent(token)
-      + '&url=' + encodeURIComponent(articleUrl);
+      + '&url=' + encodeURIComponent(articleUrl)
+      + (retry ? '&retry=1' : '');
     const t0 = this._t().summary;
     const route = `[${(typeof location !== 'undefined' && location.origin) || '?'} → ${this._originOf(base)}]`;
     // Pagina in HTTPS che chiama un server in HTTP: il browser blocca la
@@ -1060,17 +1064,17 @@ class RssNewsCard extends HTMLElement {
     const body = overlay.querySelector('.rss-sum-body');
     // Il caricamento è una funzione perché il bottone "Riprova la traduzione"
     // deve poterlo rifare senza chiudere e riaprire il popup.
-    const load = () => {
+    const load = (retry = false) => {
       body.innerHTML = `<div class="rss-sum-loading"><span class="rss-sum-spinner"></span>${this._escHtml(t.loading)}</div>`;
       const ctrl = new AbortController();
       this._summaryAbort = ctrl;
       const timer = setTimeout(() => ctrl.abort(), 50000);
-      this._fetchSummary(article.link, ctrl.signal)
+      this._fetchSummary(article.link, ctrl.signal, retry)
         .then((data) => {
           if (this._summaryOverlay !== overlay) return;
           body.innerHTML = this._summaryBodyHtml(data, t);
-          const retry = body.querySelector('.rss-sum-retry');
-          if (retry) retry.addEventListener('click', () => load());
+          const retryBtn = body.querySelector('.rss-sum-retry');
+          if (retryBtn) retryBtn.addEventListener('click', () => load(true));
         })
         .catch((err) => { if (this._summaryOverlay === overlay) body.innerHTML = this._summaryFallbackHtml(article, err, t); })
         .finally(() => clearTimeout(timer));
