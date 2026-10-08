@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.23.3 · build 2026-10-08-06';
+const CARD_VERSION = 'v1.23.5 · build 2026-10-08-08';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -123,6 +123,9 @@ const RSS_LOCALES = {
       tr_net_mixed:      'Home Assistant is open over HTTPS but the news server is HTTP: the browser blocks the request (mixed content).',
       tr_testing_s:      'Translating… {s} s',
       tr_stats:          ' (model loading {load} s, {tps} tokens/s)',
+      tr_threads:        'CPU threads (0 = automatic)',
+      tr_threads_hint:   'If another add-on (e.g. Frigate) uses the CPU, try fewer threads than the free cores (2, 3…) and press "Try a translation": compare the tokens/s.',
+      tr_stats2:         ' (model loading {load} s, reading the text {prompt} s, writing {tps} tokens/s)',
       tr_loaded_yes:     'The model is in memory but generates too slowly for this computer: try a smaller one (e.g. qwen2.5:1.5b).',
       tr_loaded_no:      'The model is not in memory yet: it is still loading (slow disk or too little RAM?). Try again in a minute.',
       tr_testing_hint:   'The first time the model has to load into memory: it can take more than a minute, then translations are much faster.',
@@ -213,6 +216,9 @@ const RSS_LOCALES = {
       tr_net_mixed:        'A Home Assistant HTTPS-en van megnyitva, a hírszerver viszont HTTP: a böngésző blokkolja a kérést (vegyes tartalom).',
       tr_testing_s:        'Fordítás… {s} mp',
       tr_stats:            ' (modell betöltése {load} mp, {tps} token/mp)',
+      tr_threads:          'CPU-szálak (0 = automatikus)',
+      tr_threads_hint:     'Ha másik kiegészítő (pl. Frigate) is használja a CPU-t, próbálj a szabad magoknál kevesebb szálat (2, 3…), majd nyomd meg a „Fordítás kipróbálása” gombot: hasonlítsd össze a token/mp értéket.',
+      tr_stats2:           ' (modell betöltése {load} mp, szöveg beolvasása {prompt} mp, írás {tps} token/mp)',
       tr_loaded_yes:       'A modell a memóriában van, de túl lassan generál ehhez a géphez: próbálj kisebbet (pl. qwen2.5:1.5b).',
       tr_loaded_no:        'A modell még nincs a memóriában: még töltődik (lassú lemez vagy kevés RAM?). Próbáld újra egy perc múlva.',
       tr_testing_hint:     'Első használatkor a modellnek be kell töltődnie a memóriába: ez egy percnél is tovább tarthat, utána a fordítás sokkal gyorsabb.',
@@ -303,6 +309,9 @@ const RSS_LOCALES = {
       tr_net_mixed:        'Home Assistant ist über HTTPS geöffnet, der News-Server aber nur über HTTP: Der Browser blockiert die Anfrage (Mixed Content).',
       tr_testing_s:        'Übersetze… {s} s',
       tr_stats:            ' (Modell laden {load} s, {tps} Token/s)',
+      tr_threads:          'CPU-Threads (0 = automatisch)',
+      tr_threads_hint:     'Wenn ein anderes Add-on (z. B. Frigate) die CPU nutzt, probiere weniger Threads als freie Kerne (2, 3 …) und drücke „Übersetzung testen“: Vergleiche die Token/s.',
+      tr_stats2:           ' (Modell laden {load} s, Text lesen {prompt} s, Schreiben {tps} Token/s)',
       tr_loaded_yes:       'Das Modell ist im Speicher, erzeugt aber zu langsam für diesen Rechner: Versuche ein kleineres (z. B. qwen2.5:1.5b).',
       tr_loaded_no:        'Das Modell ist noch nicht im Speicher: Es lädt noch (langsame Platte oder zu wenig RAM?). Versuche es in einer Minute erneut.',
       tr_testing_hint:     'Beim ersten Mal muss das Modell in den Speicher geladen werden: das kann über eine Minute dauern, danach geht es deutlich schneller.',
@@ -393,6 +402,9 @@ const RSS_LOCALES = {
       tr_net_mixed:         'Home Assistant è aperto in HTTPS ma il server delle notizie è in HTTP: il browser blocca la richiesta (contenuto misto).',
       tr_testing_s:         'Traduco… {s} s',
       tr_stats:             ' (caricamento del modello {load} s, {tps} token/s)',
+      tr_threads:           'Thread CPU (0 = automatico)',
+      tr_threads_hint:      'Se un altro add-on (ad esempio Frigate) usa la CPU, prova meno thread dei core liberi (2, 3…) e premi "Prova una traduzione": confronta i token/s.',
+      tr_stats2:            ' (caricamento del modello {load} s, lettura del testo {prompt} s, scrittura {tps} token/s)',
       tr_loaded_yes:        'Il modello è in memoria ma genera troppo lentamente per questo computer: prova uno più piccolo (ad esempio qwen2.5:1.5b).',
       tr_loaded_no:         'Il modello non è ancora in memoria: sta ancora caricando (disco lento o poca RAM?). Riprova tra un minuto.',
       tr_testing_hint:      'La prima volta il modello deve caricarsi in memoria: può servire più di un minuto, poi le traduzioni sono molto più veloci.',
@@ -2002,6 +2014,9 @@ class RssNewsCardEditor extends HTMLElement {
               <select id="ed-tr-model" style="flex:1 1 150px;min-width:0;"><option value=""></option></select>
               <button class="rss-add" id="ed-tr-check">${t.ed.tr_check}</button>
             </div>
+            <label style="margin-top:8px;">${t.ed.tr_threads}</label>
+            <div class="rss-src-row"><input type="number" id="ed-tr-threads" value="0" min="0" max="64" style="flex:0 0 90px;min-width:0;"/></div>
+            <div style="font-size:11px;opacity:0.7;margin-top:4px;">${t.ed.tr_threads_hint}</div>
             <label style="display:flex;gap:8px;align-items:center;margin-top:8px;"><input type="checkbox" id="ed-tr-fallback"/> ${t.ed.tr_fallback}</label>
             <div class="rss-src-row" style="margin-top:8px;"><button class="rss-add" id="ed-tr-test">${t.ed.tr_test}</button></div>
             <div style="font-size:11px;opacity:0.7;margin-top:6px;">${t.ed.tr_hint}</div>
@@ -2351,6 +2366,7 @@ class RssNewsCardEditor extends HTMLElement {
       set('#ed-tr-provider', st.provider || 'google');
       set('#ed-tr-host', o.host || '');
       set('#ed-tr-port', o.port || 11434);
+      set('#ed-tr-threads', o.threads || 0);
       const fb = this.querySelector('#ed-tr-fallback'); if (fb) fb.checked = !!o.fallback_google;
       this._trFillModels([], o.model || '');
       this._trToggle();
@@ -2374,7 +2390,7 @@ class RssNewsCardEditor extends HTMLElement {
     const v = (id) => { const el = this.querySelector(id); return el ? el.value.trim() : ''; };
     return {
       provider: v('#ed-tr-provider') || 'google',
-      host: v('#ed-tr-host'), port: v('#ed-tr-port'), model: v('#ed-tr-model'),
+      host: v('#ed-tr-host'), port: v('#ed-tr-port'), model: v('#ed-tr-model'), threads: v('#ed-tr-threads') || '0',
       fallback_google: !!(this.querySelector('#ed-tr-fallback') || {}).checked,
     };
   }
@@ -2403,7 +2419,7 @@ class RssNewsCardEditor extends HTMLElement {
     tick();
     const timer = setInterval(tick, 1000);
     try {
-      const d = await this._trApi({ action: 'test', host: f.host, port: f.port, model: f.model }, this._trTestTimeoutMs || 120000);
+      const d = await this._trApi({ action: 'test', host: f.host, port: f.port, model: f.model, threads: f.threads }, this._trTestTimeoutMs || 120000);
       clearInterval(timer);
       if (!d.ok) {
         // Se Ollama non ha risposto in tempo il server dice se il modello è in memoria o no.
@@ -2412,8 +2428,11 @@ class RssNewsCardEditor extends HTMLElement {
         return;
       }
       // Quanto è andato a caricare il modello e a che velocità genera: serve a scegliere il modello.
+      const r1 = (ms) => Math.round(ms / 100) / 10;
       const stats = (d.load_ms != null && d.tokens_per_s != null)
-        ? this._trFmt(t.tr_stats, { load: Math.round(d.load_ms / 100) / 10, tps: d.tokens_per_s }) : '';
+        ? (d.prompt_ms != null
+          ? this._trFmt(t.tr_stats2, { load: r1(d.load_ms), prompt: r1(d.prompt_ms), tps: d.tokens_per_s })
+          : this._trFmt(t.tr_stats, { load: r1(d.load_ms), tps: d.tokens_per_s })) : '';
       this._trSay(this._trFmt(t.tr_test_ok, { s: Math.round(d.ms / 100) / 10, text: d.translation }) + stats);
     } catch (e) { clearInterval(timer); this._trSay(this._trFmt(t.tr_err, { msg: e.message }), true); }
   }
@@ -2421,7 +2440,7 @@ class RssNewsCardEditor extends HTMLElement {
   async _trSave() {
     const t = this._t().ed; const f = this._trForm();
     try {
-      const d = await this._trApi({ action: 'save', provider: f.provider, ollama: { host: f.host, port: f.port, model: f.model, fallback_google: f.fallback_google } });
+      const d = await this._trApi({ action: 'save', provider: f.provider, ollama: { host: f.host, port: f.port, model: f.model, fallback_google: f.fallback_google, threads: f.threads } });
       if (!d.ok) { this._trSay(this._trFmt(t.tr_err, { msg: d.error }), true); return; }
       this._trSay(t.tr_saved);
     } catch (e) { this._trSay(this._trFmt(t.tr_err, { msg: e.message }), true); }
