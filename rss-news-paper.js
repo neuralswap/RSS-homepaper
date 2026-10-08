@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.22.2 · build 2026-10-08-02';
+const CARD_VERSION = 'v1.23.0 · build 2026-10-08-03';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -30,6 +30,8 @@ const SUMMARIZE_FILENAME = 'summarize.php';
 // Pagina di scelta per importare fonti da un file OPML (sta accanto a
 // sources_admin.php): l'editor la apre passando token e indirizzo OPML.
 const OPML_IMPORT_PAGE = 'opml_import.html';
+// Impostazioni di "dove tradurre" (stessa cartella di sources_admin.php).
+const TRANSLATE_ADMIN_FILENAME = 'translate_admin.php';
 // Oltre questo tempo dall'ultima volta che si è scrollato, la posizione
 // salvata non viene più ripristinata e la lista riparte dall'inizio: le
 // notizie sono molte e dopo qualche ora non ha senso tornare dove si era.
@@ -91,6 +93,32 @@ const RSS_LOCALES = {
       opml_open:         'Open selection page',
       opml_hint:         'Opens a page where you choose which feeds to add, with a preview of their articles.',
       opml_need_token:   'Enter the feed admin token first.',
+      tr_provider:       'Where to translate the news',
+      tr_google:         'Google Translate (online, with limits)',
+      tr_ollama:         'Ollama (local AI, no limits)',
+      tr_host:           'Ollama server IP or name',
+      tr_port:           'Port',
+      tr_model:          'Model',
+      tr_check:          'Check and load models',
+      tr_test:           'Try a translation',
+      tr_fallback:       'If Ollama does not answer, use Google',
+      tr_save:           'Save on the server',
+      tr_hint:           'The news server does the translating, not the phone: this address must be reachable from it (same network) and Ollama must listen on all interfaces (OLLAMA_HOST=0.0.0.0).',
+      tr_need_token:     'Enter the feed admin token first.',
+      tr_loading:        'Reading the settings…',
+      tr_checking:       'Checking Ollama…',
+      tr_models_ok:      '{n} models found · Ollama {v}',
+      tr_models_none:    'Ollama answers but has no models: install one, e.g. "ollama pull gemma3:4b".',
+      tr_testing:        'Translating…',
+      tr_test_ok:        'Translated in {s} s: {text}',
+      tr_saved:          'Saved on the server.',
+      tr_err:            'Error: {msg}',
+      tr_pick_model:     'Pick a model first.',
+      tr_g_pause:        'Google paused until {time} (last error {code}).',
+      tr_g_ok:           'Google: no pause ({n}/{max} requests this hour).',
+      tr_o_last:         'Ollama: last translation {time} ({s} s, {model}).',
+      tr_o_err:          'Ollama: last error at {time}: {msg}',
+      tr_cache:          '{n} translations remembered.',
       feed_loading:      'Loading feeds…',
       feed_load_error:   'Could not load feeds',
       feed_set_url_first:'Set the admin endpoint URL to manage feeds.',
@@ -147,6 +175,32 @@ const RSS_LOCALES = {
       opml_open:           'Kiválasztó oldal megnyitása',
       opml_hint:           'Megnyit egy oldalt, ahol kiválaszthatod a hozzáadandó csatornákat, cikkelőnézettel.',
       opml_need_token:     'Először add meg a források adminisztrációs tokenjét.',
+      tr_provider:         'Hol fordítsa a híreket',
+      tr_google:           'Google Fordító (online, korlátokkal)',
+      tr_ollama:           'Ollama (helyi MI, korlátok nélkül)',
+      tr_host:             'Az Ollama szerver IP-címe vagy neve',
+      tr_port:             'Port',
+      tr_model:            'Modell',
+      tr_check:            'Ellenőrzés és modellek betöltése',
+      tr_test:             'Fordítás kipróbálása',
+      tr_fallback:         'Ha az Ollama nem válaszol, használja a Google-t',
+      tr_save:             'Mentés a szerveren',
+      tr_hint:             'A fordítást a hírszerver végzi, nem a telefon: a címnek onnan elérhetőnek kell lennie (azonos hálózat), és az Ollamának minden interfészen figyelnie kell (OLLAMA_HOST=0.0.0.0).',
+      tr_need_token:       'Először add meg a források adminisztrációs tokenjét.',
+      tr_loading:          'Beállítások olvasása…',
+      tr_checking:         'Az Ollama ellenőrzése…',
+      tr_models_ok:        '{n} modell található · Ollama {v}',
+      tr_models_none:      'Az Ollama válaszol, de nincs modellje: telepíts egyet, pl. "ollama pull gemma3:4b".',
+      tr_testing:          'Fordítás…',
+      tr_test_ok:          'Lefordítva {s} mp alatt: {text}',
+      tr_saved:            'Elmentve a szerveren.',
+      tr_err:              'Hiba: {msg}',
+      tr_pick_model:       'Előbb válassz modellt.',
+      tr_g_pause:          'A Google szünetel eddig: {time} (utolsó hiba: {code}).',
+      tr_g_ok:             'Google: nincs szünet ({n}/{max} kérés ebben az órában).',
+      tr_o_last:           'Ollama: utolsó fordítás {time} ({s} mp, {model}).',
+      tr_o_err:            'Ollama: utolsó hiba {time}: {msg}',
+      tr_cache:            '{n} fordítás megjegyezve.',
       feed_loading:        'Források betöltése…',
       feed_load_error:     'Nem sikerült betölteni a forrásokat',
       feed_set_url_first:  'Add meg a végpont URL-jét a források kezeléséhez.',
@@ -203,6 +257,32 @@ const RSS_LOCALES = {
       opml_open:           'Auswahlseite öffnen',
       opml_hint:           'Öffnet eine Seite, auf der du die hinzuzufügenden Feeds auswählst, mit Vorschau der Artikel.',
       opml_need_token:     'Gib zuerst das Feed-Admin-Token ein.',
+      tr_provider:         'Wo die Nachrichten übersetzt werden',
+      tr_google:           'Google Übersetzer (online, mit Limits)',
+      tr_ollama:           'Ollama (lokale KI, ohne Limits)',
+      tr_host:             'IP oder Name des Ollama-Servers',
+      tr_port:             'Port',
+      tr_model:            'Modell',
+      tr_check:            'Prüfen und Modelle laden',
+      tr_test:             'Übersetzung testen',
+      tr_fallback:         'Wenn Ollama nicht antwortet, Google verwenden',
+      tr_save:             'Auf dem Server speichern',
+      tr_hint:             'Den Nachrichtenserver übersetzt, nicht das Handy: Die Adresse muss von dort erreichbar sein (gleiches Netz) und Ollama muss auf allen Schnittstellen lauschen (OLLAMA_HOST=0.0.0.0).',
+      tr_need_token:       'Gib zuerst das Feed-Admin-Token ein.',
+      tr_loading:          'Einstellungen werden gelesen…',
+      tr_checking:         'Ollama wird geprüft…',
+      tr_models_ok:        '{n} Modelle gefunden · Ollama {v}',
+      tr_models_none:      'Ollama antwortet, hat aber keine Modelle: installiere eines, z. B. "ollama pull gemma3:4b".',
+      tr_testing:          'Übersetze…',
+      tr_test_ok:          'In {s} s übersetzt: {text}',
+      tr_saved:            'Auf dem Server gespeichert.',
+      tr_err:              'Fehler: {msg}',
+      tr_pick_model:       'Wähle zuerst ein Modell.',
+      tr_g_pause:          'Google pausiert bis {time} (letzter Fehler {code}).',
+      tr_g_ok:             'Google: keine Pause ({n}/{max} Anfragen in dieser Stunde).',
+      tr_o_last:           'Ollama: letzte Übersetzung {time} ({s} s, {model}).',
+      tr_o_err:            'Ollama: letzter Fehler um {time}: {msg}',
+      tr_cache:            '{n} Übersetzungen gespeichert.',
       feed_loading:        'Quellen werden geladen…',
       feed_load_error:     'Quellen konnten nicht geladen werden',
       feed_set_url_first:  'Admin-Endpunkt-URL festlegen, um Quellen zu verwalten.',
@@ -259,6 +339,32 @@ const RSS_LOCALES = {
       opml_open:            'Apri pagina di selezione',
       opml_hint:            'Si apre una pagina dove scegli quali feed aggiungere, con anteprima degli articoli.',
       opml_need_token:      'Inserisci prima il token amministrazione fonti.',
+      tr_provider:          'Dove tradurre le notizie',
+      tr_google:            'Google Traduttore (online, con limiti)',
+      tr_ollama:            'Ollama (AI locale, senza limiti)',
+      tr_host:              'IP o nome del server Ollama',
+      tr_port:              'Porta',
+      tr_model:             'Modello',
+      tr_check:             'Verifica e carica modelli',
+      tr_test:              'Prova una traduzione',
+      tr_fallback:          'Se Ollama non risponde, usa Google',
+      tr_save:              'Salva sul server',
+      tr_hint:              "La traduzione la fa il server delle notizie, non il telefono: l'indirizzo deve essere raggiungibile da lì (stessa rete) e Ollama deve ascoltare su tutte le interfacce (OLLAMA_HOST=0.0.0.0).",
+      tr_need_token:        'Inserisci prima il token amministrazione fonti.',
+      tr_loading:           'Leggo le impostazioni…',
+      tr_checking:          'Controllo Ollama…',
+      tr_models_ok:         '{n} modelli trovati · Ollama {v}',
+      tr_models_none:       'Ollama risponde ma non ha modelli: installane uno, ad esempio con "ollama pull gemma3:4b".',
+      tr_testing:           'Traduco…',
+      tr_test_ok:           'Tradotto in {s} s: {text}',
+      tr_saved:             'Salvato sul server.',
+      tr_err:               'Errore: {msg}',
+      tr_pick_model:        'Scegli prima un modello.',
+      tr_g_pause:           'Google in pausa fino alle {time} (ultimo errore {code}).',
+      tr_g_ok:              "Google: nessuna pausa ({n}/{max} richieste in quest'ora).",
+      tr_o_last:            'Ollama: ultima traduzione {time} ({s} s, {model}).',
+      tr_o_err:             'Ollama: ultimo errore alle {time}: {msg}',
+      tr_cache:             '{n} traduzioni in memoria.',
       feed_loading:         'Caricamento fonti…',
       feed_load_error:      'Impossibile caricare le fonti',
       feed_set_url_first:   'Imposta l\'URL dell\'endpoint per gestire le fonti.',
@@ -958,7 +1064,7 @@ class RssNewsCard extends HTMLElement {
   // il codice, si mostra il codice stesso in maiuscolo.
   _langName(code) {
     const c = String(code || '').trim();
-    if (!c) return '';
+    if (!c || c === 'und' || c === 'other') return '';   // lingua non determinata: l'intestazione dice solo "Originale"
     try {
       const n = new Intl.DisplayNames([this._getLang()], { type: 'language' }).of(c);
       if (n && n !== c) return n;
@@ -1762,6 +1868,7 @@ class RssNewsCardEditor extends HTMLElement {
       // rispetto a quella (eventualmente vuota) di prima, ricarichiamo.
       if (config.feed_admin_url !== prevUrl || config.feed_admin_token !== prevToken) {
         this._loadFeedSources();
+        this._trLoad();
       }
     }
   }
@@ -1845,6 +1952,30 @@ class RssNewsCardEditor extends HTMLElement {
             <button class="rss-add" id="ed-opml-open">${t.ed.opml_open}</button>
           </div>
           <div id="ed-opml-status" style="font-size:11px;opacity:0.7;margin-top:4px;">${t.ed.opml_hint}</div>
+
+          <label style="margin-top:14px;">${t.ed.tr_provider}</label>
+          <select id="ed-tr-provider" style="width:100%;">
+            <option value="google">${t.ed.tr_google}</option>
+            <option value="ollama">${t.ed.tr_ollama}</option>
+          </select>
+          <div id="ed-tr-ollama" hidden style="margin-top:8px;">
+            <label>${t.ed.tr_host}</label>
+            <div class="rss-src-row" style="flex-wrap:wrap;">
+              <input type="text" id="ed-tr-host" placeholder="192.168.1.6" autocomplete="off" style="flex:1 1 150px;min-width:0;"/>
+              <label style="flex:0 0 auto;margin:0;align-self:center;">${t.ed.tr_port}</label>
+              <input type="number" id="ed-tr-port" value="11434" min="1" max="65535" style="flex:0 0 90px;min-width:0;"/>
+            </div>
+            <label style="margin-top:8px;">${t.ed.tr_model}</label>
+            <div class="rss-src-row" style="flex-wrap:wrap;">
+              <select id="ed-tr-model" style="flex:1 1 150px;min-width:0;"><option value=""></option></select>
+              <button class="rss-add" id="ed-tr-check">${t.ed.tr_check}</button>
+            </div>
+            <label style="display:flex;gap:8px;align-items:center;margin-top:8px;"><input type="checkbox" id="ed-tr-fallback"/> ${t.ed.tr_fallback}</label>
+            <div class="rss-src-row" style="margin-top:8px;"><button class="rss-add" id="ed-tr-test">${t.ed.tr_test}</button></div>
+            <div style="font-size:11px;opacity:0.7;margin-top:6px;">${t.ed.tr_hint}</div>
+          </div>
+          <div class="rss-src-row" style="margin-top:10px;"><button class="rss-add" id="ed-tr-save">${t.ed.tr_save}</button></div>
+          <div id="ed-tr-status" style="font-size:11px;opacity:0.8;margin-top:6px;white-space:pre-wrap;"></div>
         </div>
 
         <label>${t.ed.card_height}</label>
@@ -1934,6 +2065,7 @@ class RssNewsCardEditor extends HTMLElement {
     // Sync color previews after DOM is ready
     requestAnimationFrame(() => this._syncColorPreviews());
     this._loadFeedSources();
+    this._trLoad();
   }
 
   _syncColorPreviews() {
@@ -2038,12 +2170,14 @@ class RssNewsCardEditor extends HTMLElement {
       feedUrlEl.addEventListener('change', () => {
         this._upd('feed_admin_url', feedUrlEl.value.trim());
         this._loadFeedSources();
+        this._trLoad();
       });
     }
     if (feedTokenEl) {
       feedTokenEl.addEventListener('change', () => {
         this._upd('feed_admin_token', feedTokenEl.value.trim());
         this._loadFeedSources();
+        this._trLoad();
       });
     }
 
@@ -2058,6 +2192,14 @@ class RssNewsCardEditor extends HTMLElement {
     if (opmlUrlEl) {
       opmlUrlEl.addEventListener('change', () => this._upd('opml_url', opmlUrlEl.value.trim()));
     }
+    // Dove tradurre: le impostazioni stanno sul server (translate_admin.php), perché a
+    // tradurre sono gli script PHP; l'editor le legge e le salva da lì.
+    const trProv = this.querySelector('#ed-tr-provider');
+    if (trProv) trProv.addEventListener('change', () => this._trToggle());
+    const trBind = (id, fn) => { const el = this.querySelector(id); if (el) el.addEventListener('click', fn); };
+    trBind('#ed-tr-check', () => this._trCheck());
+    trBind('#ed-tr-test', () => this._trTest());
+    trBind('#ed-tr-save', () => this._trSave());
     const opmlOpenBtn = this.querySelector('#ed-opml-open');
     if (opmlOpenBtn) {
       opmlOpenBtn.addEventListener('click', () => {
@@ -2087,6 +2229,136 @@ class RssNewsCardEditor extends HTMLElement {
     base = base.replace(new RegExp(FEED_ADMIN_FILENAME.replace('.', '\\.') + '/?$'), '');
     if (!/\/$/.test(base)) base += '/'; // assicura lo slash finale prima del nome file
     return base + FEED_ADMIN_FILENAME;
+  }
+
+  // ───────── Dove tradurre (Google / Ollama) ─────────
+  _trUrl() {
+    const full = this._feedAdminFullUrl();
+    return full ? full.replace(new RegExp(FEED_ADMIN_FILENAME.replace('.', '\\.') + '$'), TRANSLATE_ADMIN_FILENAME) : '';
+  }
+
+  // Stesso schema di _feedApi: token sia nell'intestazione sia nell'indirizzo (alcuni proxy
+  // non inoltrano le intestazioni personalizzate). Ritorna sempre il JSON, anche con ok:false.
+  async _trApi(body) {
+    const base = this._trUrl();
+    const token = (this._config.feed_admin_token || '').trim();
+    if (!base || !token) throw new Error(this._t().ed.tr_need_token);
+    const url = base + (base.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token);
+    const opts = body
+      ? { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-API-Token': token }, body: JSON.stringify(body) }
+      : { method: 'GET', headers: { 'X-API-Token': token } };
+    const res = await fetch(url, opts);
+    let data;
+    try { data = await res.json(); } catch { throw new Error('HTTP ' + res.status + ' (' + TRANSLATE_ADMIN_FILENAME + '?)'); }
+    if (res.status === 404) throw new Error(TRANSLATE_ADMIN_FILENAME + ': 404');
+    if (res.status === 401) throw new Error('token');
+    if (!data.ok && !data.error) throw new Error('HTTP ' + res.status);
+    return data;
+  }
+
+  _trSay(text, isError = false) {
+    const el = this.querySelector('#ed-tr-status');
+    if (!el) return;
+    el.textContent = text || '';
+    el.style.color = isError ? 'var(--error-color,#f44336)' : '';
+  }
+
+  _trFmt(tpl, vars) { return String(tpl).replace(/\{(\w+)\}/g, (m, k) => (vars[k] !== undefined ? vars[k] : m)); }
+  _trTime(ts) { return new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+
+  _trToggle() {
+    const prov = this.querySelector('#ed-tr-provider');
+    const box = this.querySelector('#ed-tr-ollama');
+    if (prov && box) box.hidden = prov.value !== 'ollama';
+  }
+
+  // Riempie il menu dei modelli. Se il modello salvato non è nell'elenco lo si tiene comunque
+  // (altrimenti un controllo a server spento lo cancellerebbe dalla scelta).
+  _trFillModels(models, current) {
+    const sel = this.querySelector('#ed-tr-model');
+    if (!sel) return;
+    const names = (models || []).map(m => m.name);
+    if (current && !names.includes(current)) names.unshift(current);
+    sel.innerHTML = '';
+    if (!names.length) { sel.appendChild(new Option('', '')); return; }
+    (models || []).forEach(m => {
+      const extra = [m.params, m.size_mb ? Math.round(m.size_mb / 100) / 10 + ' GB' : ''].filter(Boolean).join(', ');
+      sel.appendChild(new Option(m.name + (extra ? ' (' + extra + ')' : ''), m.name));
+    });
+    if (current && !(models || []).some(m => m.name === current)) sel.insertBefore(new Option(current, current), sel.firstChild);
+    sel.value = current && names.includes(current) ? current : names[0];
+  }
+
+  async _trLoad() {
+    const t = this._t().ed;
+    if (!this.querySelector('#ed-tr-provider')) return;
+    if (!(this._config.feed_admin_token || '').trim() || !this._trUrl()) { this._trSay(t.tr_need_token); return; }
+    this._trSay(t.tr_loading);
+    try {
+      const d = await this._trApi();
+      const st = d.settings || {};
+      const o = st.ollama || {};
+      const set = (id, v) => { const el = this.querySelector(id); if (el) el.value = v; };
+      set('#ed-tr-provider', st.provider || 'google');
+      set('#ed-tr-host', o.host || '');
+      set('#ed-tr-port', o.port || 11434);
+      const fb = this.querySelector('#ed-tr-fallback'); if (fb) fb.checked = !!o.fallback_google;
+      this._trFillModels([], o.model || '');
+      this._trToggle();
+      const s = d.status || {};
+      const lines = [];
+      if (s.google) {
+        lines.push(s.google.cooldown_until
+          ? this._trFmt(t.tr_g_pause, { time: this._trTime(s.google.cooldown_until), code: s.google.last_code || 429 })
+          : this._trFmt(t.tr_g_ok, { n: s.google.hour_calls, max: s.google.hourly_budget }));
+      }
+      if (s.ollama && s.ollama.last_ok) lines.push(this._trFmt(t.tr_o_last, { time: this._trTime(s.ollama.last_ok), s: Math.round(s.ollama.last_ms / 100) / 10, model: s.ollama.last_model }));
+      if (s.ollama && s.ollama.last_error && s.ollama.last_error_at) lines.push(this._trFmt(t.tr_o_err, { time: this._trTime(s.ollama.last_error_at), msg: s.ollama.last_error }));
+      if (s.cache_entries) lines.push(this._trFmt(t.tr_cache, { n: s.cache_entries }));
+      this._trSay(lines.join('\n'));
+    } catch (e) {
+      this._trSay(this._trFmt(t.tr_err, { msg: e.message }), true);
+    }
+  }
+
+  _trForm() {
+    const v = (id) => { const el = this.querySelector(id); return el ? el.value.trim() : ''; };
+    return {
+      provider: v('#ed-tr-provider') || 'google',
+      host: v('#ed-tr-host'), port: v('#ed-tr-port'), model: v('#ed-tr-model'),
+      fallback_google: !!(this.querySelector('#ed-tr-fallback') || {}).checked,
+    };
+  }
+
+  async _trCheck() {
+    const t = this._t().ed; const f = this._trForm();
+    this._trSay(t.tr_checking);
+    try {
+      const d = await this._trApi({ action: 'models', host: f.host, port: f.port });
+      if (!d.ok) { this._trSay(this._trFmt(t.tr_err, { msg: d.error }), true); return; }
+      this._trFillModels(d.models, f.model);
+      this._trSay(d.models.length ? this._trFmt(t.tr_models_ok, { n: d.models.length, v: d.ollama_version || '?' }) : t.tr_models_none, !d.models.length);
+    } catch (e) { this._trSay(this._trFmt(t.tr_err, { msg: e.message }), true); }
+  }
+
+  async _trTest() {
+    const t = this._t().ed; const f = this._trForm();
+    if (!f.model) { this._trSay(t.tr_pick_model, true); return; }
+    this._trSay(t.tr_testing);
+    try {
+      const d = await this._trApi({ action: 'test', host: f.host, port: f.port, model: f.model });
+      if (!d.ok) { this._trSay(this._trFmt(t.tr_err, { msg: d.error }), true); return; }
+      this._trSay(this._trFmt(t.tr_test_ok, { s: Math.round(d.ms / 100) / 10, text: d.translation }));
+    } catch (e) { this._trSay(this._trFmt(t.tr_err, { msg: e.message }), true); }
+  }
+
+  async _trSave() {
+    const t = this._t().ed; const f = this._trForm();
+    try {
+      const d = await this._trApi({ action: 'save', provider: f.provider, ollama: { host: f.host, port: f.port, model: f.model, fallback_google: f.fallback_google } });
+      if (!d.ok) { this._trSay(this._trFmt(t.tr_err, { msg: d.error }), true); return; }
+      this._trSay(t.tr_saved);
+    } catch (e) { this._trSay(this._trFmt(t.tr_err, { msg: e.message }), true); }
   }
 
   // Indirizzo della pagina di scelta: stessa cartella di sources_admin.php.
