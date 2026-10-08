@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.22.0 · build 2026-09-28-09';
+const CARD_VERSION = 'v1.22.1 · build 2026-10-08-01';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -53,7 +53,7 @@ const RSS_LOCALES = {
       auto_note: 'Automatic summary: the key sentences of the article.',
       partial_note: 'Only the description declared by the site was available.',
       translated: 'Translated automatically', not_translated: 'Original text (translation unavailable)',
-      unavailable: 'Summary not available', fallback_note: 'Showing the feed description instead.', reason: 'Reason', original: 'Original', err_interrupted: 'The server answers, but the request for this article was interrupted (timeout or server error)', err_unreachable: 'Server not reachable from this app (network, CORS or missing file)', err_mixed: 'Home Assistant is opened over HTTPS but the news server is HTTP: the browser blocks the request (mixed content)',
+      unavailable: 'Summary not available', fallback_note: 'Showing the feed description instead.', reason: 'Reason', original: 'Original', retry_translation: 'Retry translation', err_interrupted: 'The server answers, but the request for this article was interrupted (timeout or server error)', err_unreachable: 'Server not reachable from this app (network, CORS or missing file)', err_mixed: 'Home Assistant is opened over HTTPS but the news server is HTTP: the browser blocks the request (mixed content)',
     },
     diag_title: '⚠️ Sensor diagnostics',
     diag_footer: 'Missing sensors must be created as <code>command_line</code> sensors in <b>configuration.yaml</b>.',
@@ -109,7 +109,7 @@ const RSS_LOCALES = {
       auto_note: 'Automatikus összefoglaló: a cikk fő mondatai.',
       partial_note: 'Csak az oldal által megadott leírás volt elérhető.',
       translated: 'Automatikusan lefordítva', not_translated: 'Eredeti szöveg (a fordítás nem érhető el)',
-      unavailable: 'Az összefoglaló nem érhető el', fallback_note: 'A hírcsatorna leírását mutatom.', reason: 'Ok', original: 'Eredeti', err_interrupted: 'A szerver válaszol, de a cikkre vonatkozó kérés megszakadt (időtúllépés vagy szerverhiba)', err_unreachable: 'A szerver nem érhető el ebből az alkalmazásból (hálózat, CORS vagy hiányzó fájl)', err_mixed: 'A Home Assistant HTTPS-en van megnyitva, a hírszerver viszont HTTP: a böngésző blokkolja a kérést (vegyes tartalom)',
+      unavailable: 'Az összefoglaló nem érhető el', fallback_note: 'A hírcsatorna leírását mutatom.', reason: 'Ok', original: 'Eredeti', retry_translation: 'Fordítás újrapróbálása', err_interrupted: 'A szerver válaszol, de a cikkre vonatkozó kérés megszakadt (időtúllépés vagy szerverhiba)', err_unreachable: 'A szerver nem érhető el ebből az alkalmazásból (hálózat, CORS vagy hiányzó fájl)', err_mixed: 'A Home Assistant HTTPS-en van megnyitva, a hírszerver viszont HTTP: a böngésző blokkolja a kérést (vegyes tartalom)',
     },
     diag_title: '⚠️ Szenzor diagnosztika',
     diag_footer: 'A hibás szenzorokat <code>command_line</code> szenzorokként kell létrehozni a <b>configuration.yaml</b>-ban.',
@@ -165,7 +165,7 @@ const RSS_LOCALES = {
       auto_note: 'Automatische Zusammenfassung: die wichtigsten Sätze des Artikels.',
       partial_note: 'Nur die von der Seite angegebene Beschreibung war verfügbar.',
       translated: 'Automatisch übersetzt', not_translated: 'Originaltext (Übersetzung nicht verfügbar)',
-      unavailable: 'Zusammenfassung nicht verfügbar', fallback_note: 'Stattdessen wird die Feed-Beschreibung angezeigt.', reason: 'Grund', original: 'Original', err_interrupted: 'Der Server antwortet, aber die Anfrage für diesen Artikel wurde unterbrochen (Timeout oder Serverfehler)', err_unreachable: 'Server von dieser App aus nicht erreichbar (Netzwerk, CORS oder fehlende Datei)', err_mixed: 'Home Assistant ist über HTTPS geöffnet, der News-Server aber nur über HTTP: der Browser blockiert die Anfrage (Mixed Content)',
+      unavailable: 'Zusammenfassung nicht verfügbar', fallback_note: 'Stattdessen wird die Feed-Beschreibung angezeigt.', reason: 'Grund', original: 'Original', retry_translation: 'Übersetzung erneut versuchen', err_interrupted: 'Der Server antwortet, aber die Anfrage für diesen Artikel wurde unterbrochen (Timeout oder Serverfehler)', err_unreachable: 'Server von dieser App aus nicht erreichbar (Netzwerk, CORS oder fehlende Datei)', err_mixed: 'Home Assistant ist über HTTPS geöffnet, der News-Server aber nur über HTTP: der Browser blockiert die Anfrage (Mixed Content)',
     },
     diag_title: '⚠️ Sensor-Diagnose',
     diag_footer: 'Fehlende Sensoren müssen als <code>command_line</code>-Sensoren in <b>configuration.yaml</b> erstellt werden.',
@@ -221,7 +221,7 @@ const RSS_LOCALES = {
       auto_note: "Riassunto automatico: le frasi principali dell'articolo.",
       partial_note: 'Disponibile solo la descrizione dichiarata dal sito.',
       translated: 'Tradotto automaticamente', not_translated: 'Testo originale (traduzione non disponibile)',
-      unavailable: 'Riassunto non disponibile', fallback_note: 'Mostro la descrizione del feed.', reason: 'Motivo', original: 'Originale', err_interrupted: "Il server risponde, ma la richiesta per questo articolo è stata interrotta (timeout o errore sul server)", err_unreachable: 'Server non raggiungibile da questa app (rete, CORS o file mancante)', err_mixed: 'Home Assistant è aperto in HTTPS ma il server notizie è in HTTP: il browser blocca la richiesta (contenuto misto)',
+      unavailable: 'Riassunto non disponibile', fallback_note: 'Mostro la descrizione del feed.', reason: 'Motivo', original: 'Originale', retry_translation: 'Riprova la traduzione', err_interrupted: "Il server risponde, ma la richiesta per questo articolo è stata interrotta (timeout o errore sul server)", err_unreachable: 'Server non raggiungibile da questa app (rete, CORS o file mancante)', err_mixed: 'Home Assistant è aperto in HTTPS ma il server notizie è in HTTP: il browser blocca la richiesta (contenuto misto)',
     },
     diag_title: '⚠️ Diagnostica sensori',
     diag_footer: 'I sensori mancanti devono essere creati come sensori <code>command_line</code> in <b>configuration.yaml</b>.',
@@ -900,7 +900,12 @@ class RssNewsCard extends HTMLElement {
     let data;
     try { data = await res.json(); } catch { throw new Error('Risposta non JSON dal server (' + res.status + ')'); }
     if (!res.ok || !data.ok) throw new Error(data.error || ('HTTP ' + res.status));
-    this._summaryCache.set(articleUrl, { data, at: Date.now() });
+    // In memoria si tengono solo i risultati completi, come fa il server con la
+    // sua cache su disco: un errore passeggero della traduzione (o il ripiego
+    // sulla sola descrizione del sito) non deve restare "congelato" per 5 minuti.
+    if (!data.translation_warning && !data.partial && data.source !== 'meta') {
+      this._summaryCache.set(articleUrl, { data, at: Date.now() });
+    }
     return data;
   }
 
@@ -973,12 +978,20 @@ class RssNewsCard extends HTMLElement {
     }
     const notes = [];
     notes.push(data.partial || data.source === 'meta' ? t.partial_note : t.auto_note);
+    const translationFailed = !data.translated && data.lang && data.lang !== 'it' && !!data.translation_warning;
     if (data.translated) notes.push(t.translated);
-    else if (data.lang && data.lang !== 'it' && data.translation_warning) notes.push(t.not_translated);
+    else if (translationFailed) notes.push(t.not_translated);
     // Quale server ha risposto: versione (se il server la dichiara) e build.
     // Serve a verificare a colpo d'occhio che sul server giri il file aggiornato.
     const srv = [data.version ? 'v' + data.version : null, data.build].filter(Boolean).join(' · ');
+    // Se la traduzione non è riuscita si mostra il motivo (così si può capire
+    // cosa non va) e un bottone per riprovare senza chiudere il popup.
+    const failBox = translationFailed
+      ? `<div class="rss-sum-note">${this._escHtml(t.reason)}: ${this._escHtml(data.translation_warning)} `
+        + `<button type="button" class="rss-sum-retry" style="border:1px solid var(--divider-color,#555);background:transparent;color:var(--primary-color,#03a9f4);border-radius:6px;padding:2px 8px;font-size:11px;cursor:pointer;">${this._escHtml(t.retry_translation)}</button></div>`
+      : '';
     return html + `<div class="rss-sum-note">${notes.map(n => this._escHtml(n)).join(' · ')}</div>`
+      + failBox
       + (srv ? `<div class="rss-sum-note" style="opacity:0.55;">summarize.php ${this._escHtml(srv)}</div>` : '');
   }
 
@@ -1045,13 +1058,24 @@ class RssNewsCard extends HTMLElement {
     document.addEventListener('keydown', this._summaryKeyHandler);
 
     const body = overlay.querySelector('.rss-sum-body');
-    const ctrl = new AbortController();
-    this._summaryAbort = ctrl;
-    const timer = setTimeout(() => ctrl.abort(), 50000);
-    this._fetchSummary(article.link, ctrl.signal)
-      .then((data) => { if (this._summaryOverlay === overlay) body.innerHTML = this._summaryBodyHtml(data, t); })
-      .catch((err) => { if (this._summaryOverlay === overlay) body.innerHTML = this._summaryFallbackHtml(article, err, t); })
-      .finally(() => clearTimeout(timer));
+    // Il caricamento è una funzione perché il bottone "Riprova la traduzione"
+    // deve poterlo rifare senza chiudere e riaprire il popup.
+    const load = () => {
+      body.innerHTML = `<div class="rss-sum-loading"><span class="rss-sum-spinner"></span>${this._escHtml(t.loading)}</div>`;
+      const ctrl = new AbortController();
+      this._summaryAbort = ctrl;
+      const timer = setTimeout(() => ctrl.abort(), 50000);
+      this._fetchSummary(article.link, ctrl.signal)
+        .then((data) => {
+          if (this._summaryOverlay !== overlay) return;
+          body.innerHTML = this._summaryBodyHtml(data, t);
+          const retry = body.querySelector('.rss-sum-retry');
+          if (retry) retry.addEventListener('click', () => load());
+        })
+        .catch((err) => { if (this._summaryOverlay === overlay) body.innerHTML = this._summaryFallbackHtml(article, err, t); })
+        .finally(() => clearTimeout(timer));
+    };
+    load();
   }
 
   _handleLinkClick(url) {
