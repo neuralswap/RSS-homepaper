@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.24.0 · build 2026-10-08-09';
+const CARD_VERSION = 'v1.25.0 · build 2026-10-11-02';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -81,6 +81,7 @@ const RSS_LOCALES = {
       show_desc:         'Show description',
       show_original:     'Show original text',
       summary_popup:     'Summary popup on click',
+      summary_location:  'Show the place in the summary title',
       title_size:        'Article title font size (px)',
       desc_size:         'Description font size (px)',
       color_hint:        'Leave empty for theme default',
@@ -175,6 +176,7 @@ const RSS_LOCALES = {
       show_desc:           'Leírás látható',
       show_original:       'Eredeti szöveg megjelenítése',
       summary_popup:       'Összefoglaló ablak kattintáskor',
+      summary_location:    'Hely megjelenítése az összefoglaló címében',
       title_size:          'Cím betűmérete (px)',
       desc_size:           'Leírás betűmérete (px)',
       color_hint:          'Üresen hagyva a téma alapszínét használja',
@@ -269,6 +271,7 @@ const RSS_LOCALES = {
       show_desc:           'Beschreibung anzeigen',
       show_original:       'Originaltext anzeigen',
       summary_popup:       'Zusammenfassung beim Klick',
+      summary_location:    'Ort im Titel der Zusammenfassung anzeigen',
       title_size:          'Schriftgröße Artikeltitel (px)',
       desc_size:           'Schriftgröße Beschreibung (px)',
       color_hint:          'Leer lassen für Themenstandardfarbe',
@@ -363,6 +366,7 @@ const RSS_LOCALES = {
       show_desc:            'Mostra descrizione',
       show_original:        'Mostra testo originale',
       summary_popup:        'Popup riassunto al click',
+      summary_location:     'Mostra il luogo nel titolo del riassunto',
       title_size:           'Dimensione carattere titolo (px)',
       desc_size:            'Dimensione carattere descrizione (px)',
       color_hint:           'Lascia vuoto per il colore predefinito del tema',
@@ -502,6 +506,7 @@ class RssNewsCard extends HTMLElement {
       show_date: true,
       show_original: true,
       summary_popup: true,
+      summary_location: true,
       title_font_size: 15,
       desc_font_size: 14,
       card_title_color: '',
@@ -527,6 +532,9 @@ class RssNewsCard extends HTMLElement {
       // Al click su una notizia apre un popup col riassunto (default) invece
       // di aprire subito la pagina. false = comportamento precedente.
       summary_popup:    config.summary_popup !== false,
+      // Nel popup, dopo il titolo: il luogo di cui parla l'articolo, tra parentesi (es. "(Longarone, BL)"),
+      // ricavato dal server (summarize.php) dal testo originale. false = non mostrarlo.
+      summary_location: config.summary_location !== false,
       title_font_size:  config.title_font_size || 15,
       desc_font_size:   config.desc_font_size || 14,
       card_title_color: config.card_title_color || '',
@@ -1077,6 +1085,7 @@ class RssNewsCard extends HTMLElement {
       .rss-sum-head{padding:16px 18px 6px;flex-shrink:0;}
       .rss-sum-meta{font-size:11px;color:var(--secondary-text-color,#aaa);display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px;}
       .rss-sum-title{font-size:17px;font-weight:700;line-height:1.35;word-break:break-word;}
+      .rss-sum-place{font-weight:600;opacity:0.75;white-space:nowrap;}
       .rss-sum-pub{font-style:italic;font-weight:400;opacity:0.75;}
       .rss-sum-body{padding:8px 18px 14px;overflow-y:auto;-webkit-overflow-scrolling:touch;font-size:14px;line-height:1.5;flex:1;min-height:60px;}
       .rss-sum-list{margin:6px 0 0;padding-left:18px;}
@@ -1165,6 +1174,15 @@ class RssNewsCard extends HTMLElement {
       + (reason ? `<div class="rss-sum-note">${this._escHtml(t.reason)}: ${this._escHtml(reason)}</div>` : '');
   }
 
+  // Titolo del popup: titolo, luogo tra parentesi (se il server lo ha trovato) e testata.
+  // Il luogo non si aggiunge se il titolo lo contiene già per intero ("Frana a Longarone, BL").
+  _summaryTitleHtml(titleMain, publication, location) {
+    const label = location && typeof location.label === 'string' ? location.label.trim() : '';
+    const show = label && this._config.summary_location !== false && !String(titleMain).toLowerCase().includes(label.toLowerCase());
+    return `${this._escHtml(titleMain)}${show ? ` <span class="rss-sum-place">(${this._escHtml(label)})</span>` : ''}`
+      + `${publication ? ` <span class="rss-sum-pub">– ${this._escHtml(publication)}</span>` : ''}`;
+  }
+
   _openSummaryPopup(article) {
     this._closeSummaryPopup();
     this._ensureSummaryStyles();
@@ -1192,7 +1210,7 @@ class RssNewsCard extends HTMLElement {
       <div class="rss-sum-box">
         <div class="rss-sum-head">
           <div class="rss-sum-meta">${meta.join('<span style="opacity:0.4;">·</span>')}</div>
-          <div class="rss-sum-title">${this._escHtml(titleMain)}${publication ? ` <span class="rss-sum-pub">– ${this._escHtml(publication)}</span>` : ''}</div>
+          <div class="rss-sum-title">${this._summaryTitleHtml(titleMain, publication, null)}</div>
         </div>
         <div class="rss-sum-body"><div class="rss-sum-loading"><span class="rss-sum-spinner"></span>${this._escHtml(t.loading)}</div></div>
         <div class="rss-sum-actions">
@@ -1227,6 +1245,9 @@ class RssNewsCard extends HTMLElement {
         .then((data) => {
           if (this._summaryOverlay !== overlay) return;
           body.innerHTML = this._summaryBodyHtml(data, t);
+          // Il luogo di cui parla l'articolo, dopo il titolo (il server lo ricava dal testo originale)
+          const titleEl = overlay.querySelector('.rss-sum-title');
+          if (titleEl) titleEl.innerHTML = this._summaryTitleHtml(titleMain, publication, data.location);
           const retryBtn = body.querySelector('.rss-sum-retry');
           if (retryBtn) retryBtn.addEventListener('click', () => load(true));
         })
@@ -2110,6 +2131,13 @@ class RssNewsCardEditor extends HTMLElement {
               <span class="rss-slider"></span>
             </label>
           </div>
+          <div class="rss-toggle-row">
+            <label for="tog-summary-loc">${t.ed.summary_location}</label>
+            <label class="rss-toggle">
+              <input type="checkbox" id="tog-summary-loc" ${c.summary_location !== false ? 'checked' : ''}/>
+              <span class="rss-slider"></span>
+            </label>
+          </div>
         </div>
       </div>`;
 
@@ -2212,6 +2240,7 @@ class RssNewsCardEditor extends HTMLElement {
     bindChk('#tog-desc',   'show_description');
     bindChk('#tog-original', 'show_original');
     bindChk('#tog-summary', 'summary_popup');
+    bindChk('#tog-summary-loc', 'summary_location');
 
     bind('#ed-entity', 'entity');
 
@@ -2757,6 +2786,7 @@ class RssNewsCardEditor extends HTMLElement {
     setChk('#tog-desc',   c.show_description !== false);
     setChk('#tog-original', c.show_original !== false);
     setChk('#tog-summary', c.summary_popup !== false);
+    setChk('#tog-summary-loc', c.summary_location !== false);
     setChk('#tog-auto-height', c.auto_height === true);
     const heightInput = this.querySelector('#ed-height');
     if (heightInput) heightInput.disabled = c.auto_height === true;
