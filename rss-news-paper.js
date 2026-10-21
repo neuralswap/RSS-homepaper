@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.25.0 · build 2026-10-11-02';
+const CARD_VERSION = 'v1.26.0 · build 2026-10-21-02';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -52,6 +52,12 @@ const RSS_LOCALES = {
     filter_all_topics: 'All topics',
     summary: {
       loading: 'Reading the article…', open: 'Open article', close: 'Close',
+      stats: 'Statistics', st_fetch: 'Downloading the page', st_extract: 'Extracting the text', st_summarize: 'Building the summary', st_place: 'Finding the place', st_translate: 'Translating',
+      with_ollama: 'with Ollama', with_google: 'with Google', then_google: 'then Google', then_ollama: 'then Ollama',
+      sentences_of: '{done}/{total} sentences', n_chars: '{n} characters', n_sentences: '{n} sentences', per_sentence: '{s} s per sentence', remaining: 'about {s} s left', limit: 'limit {s} s',
+      read_write: 'reading {r} s · writing {w} s', tokens_s: '{n} tokens/s', load_model: 'model loading {s} s',
+      from_cache: '{n} from cache', already_it: '{n} already Italian', failed: '{n} failed', timed_out: '{n} untranslated (time limit)',
+      will_exceed: 'At this speed it will not finish in time: some sentences will stay in the original language.', already_italian: 'already in Italian', total: 'Total', from_cache_run: 'from cache', last_phase: 'It stopped at: {stage}.', avg_prefix: 'average',
       auto_note: 'Automatic summary: the key sentences of the article.',
       partial_note: 'Only the description declared by the site was available.',
       translated: 'Translated automatically', not_translated: 'Original text (translation unavailable)',
@@ -82,6 +88,7 @@ const RSS_LOCALES = {
       show_original:     'Show original text',
       summary_popup:     'Summary popup on click',
       summary_location:  'Show the place in the summary title',
+      summary_stats:     'Loading statistics in the summary',
       title_size:        'Article title font size (px)',
       desc_size:         'Description font size (px)',
       color_hint:        'Leave empty for theme default',
@@ -147,6 +154,12 @@ const RSS_LOCALES = {
     filter_all_topics: 'Összes téma',
     summary: {
       loading: 'A cikk beolvasása…', open: 'Cikk megnyitása', close: 'Bezárás',
+      stats: 'Statisztika', st_fetch: 'Az oldal letöltése', st_extract: 'A szöveg kinyerése', st_summarize: 'Az összefoglaló készítése', st_place: 'A hely keresése', st_translate: 'Fordítás olaszra',
+      with_ollama: 'Ollamával', with_google: 'Google-lel', then_google: 'majd Google', then_ollama: 'majd Ollama',
+      sentences_of: '{done}/{total} mondat', n_chars: '{n} karakter', n_sentences: '{n} mondat', per_sentence: '{s} mp / mondat', remaining: 'még kb. {s} mp', limit: 'határ: {s} mp',
+      read_write: 'olvasás {r} mp · írás {w} mp', tokens_s: '{n} token/mp', load_model: 'modell betöltése {s} mp',
+      from_cache: '{n} gyorsítótárból', already_it: '{n} már olasz', failed: '{n} sikertelen', timed_out: '{n} fordítatlan (időkorlát)',
+      will_exceed: 'Ilyen sebességgel nem készül el időben: néhány mondat eredeti nyelven marad.', already_italian: 'már olasz', total: 'Összesen', from_cache_run: 'gyorsítótárból', last_phase: 'Itt állt meg: {stage}.', avg_prefix: 'átlag',
       auto_note: 'Automatikus összefoglaló: a cikk fő mondatai.',
       partial_note: 'Csak az oldal által megadott leírás volt elérhető.',
       translated: 'Automatikusan lefordítva', not_translated: 'Eredeti szöveg (a fordítás nem érhető el)',
@@ -177,6 +190,7 @@ const RSS_LOCALES = {
       show_original:       'Eredeti szöveg megjelenítése',
       summary_popup:       'Összefoglaló ablak kattintáskor',
       summary_location:    'Hely megjelenítése az összefoglaló címében',
+      summary_stats:       'Betöltési statisztika az összefoglalóban',
       title_size:          'Cím betűmérete (px)',
       desc_size:           'Leírás betűmérete (px)',
       color_hint:          'Üresen hagyva a téma alapszínét használja',
@@ -242,6 +256,12 @@ const RSS_LOCALES = {
     filter_all_topics: 'Alle Themen',
     summary: {
       loading: 'Artikel wird gelesen…', open: 'Artikel öffnen', close: 'Schließen',
+      stats: 'Statistik', st_fetch: 'Seite wird geladen', st_extract: 'Text wird extrahiert', st_summarize: 'Zusammenfassung wird erstellt', st_place: 'Ort wird gesucht', st_translate: 'Übersetzung ins Italienische',
+      with_ollama: 'mit Ollama', with_google: 'mit Google', then_google: 'dann Google', then_ollama: 'dann Ollama',
+      sentences_of: '{done}/{total} Sätze', n_chars: '{n} Zeichen', n_sentences: '{n} Sätze', per_sentence: '{s} s pro Satz', remaining: 'noch ca. {s} s', limit: 'Limit {s} s',
+      read_write: 'Lesen {r} s · Schreiben {w} s', tokens_s: '{n} Token/s', load_model: 'Modell laden {s} s',
+      from_cache: '{n} aus dem Cache', already_it: '{n} bereits Italienisch', failed: '{n} fehlgeschlagen', timed_out: '{n} unübersetzt (Zeitlimit)',
+      will_exceed: 'Bei dieser Geschwindigkeit wird es nicht rechtzeitig fertig: einige Sätze bleiben im Original.', already_italian: 'bereits Italienisch', total: 'Gesamt', from_cache_run: 'aus dem Cache', last_phase: 'Gestoppt bei: {stage}.', avg_prefix: 'Durchschnitt',
       auto_note: 'Automatische Zusammenfassung: die wichtigsten Sätze des Artikels.',
       partial_note: 'Nur die von der Seite angegebene Beschreibung war verfügbar.',
       translated: 'Automatisch übersetzt', not_translated: 'Originaltext (Übersetzung nicht verfügbar)',
@@ -272,6 +292,7 @@ const RSS_LOCALES = {
       show_original:       'Originaltext anzeigen',
       summary_popup:       'Zusammenfassung beim Klick',
       summary_location:    'Ort im Titel der Zusammenfassung anzeigen',
+      summary_stats:       'Ladestatistik in der Zusammenfassung',
       title_size:          'Schriftgröße Artikeltitel (px)',
       desc_size:           'Schriftgröße Beschreibung (px)',
       color_hint:          'Leer lassen für Themenstandardfarbe',
@@ -337,6 +358,12 @@ const RSS_LOCALES = {
     filter_all_topics: 'Tutti gli argomenti',
     summary: {
       loading: "Sto leggendo l'articolo…", open: 'Apri articolo', close: 'Chiudi',
+      stats: 'Statistiche', st_fetch: 'Scarico la pagina', st_extract: 'Estraggo il testo', st_summarize: 'Creo il riassunto', st_place: 'Cerco il luogo', st_translate: 'Traduco in italiano',
+      with_ollama: 'con Ollama', with_google: 'con Google', then_google: 'poi Google', then_ollama: 'poi Ollama',
+      sentences_of: '{done}/{total} frasi', n_chars: '{n} caratteri', n_sentences: '{n} frasi', per_sentence: '{s} s a frase', remaining: 'ancora circa {s} s', limit: 'limite {s} s',
+      read_write: 'lettura {r} s · scrittura {w} s', tokens_s: '{n} token/s', load_model: 'caricamento modello {s} s',
+      from_cache: '{n} dalla cache', already_it: '{n} già in italiano', failed: '{n} non riuscite', timed_out: '{n} non tradotte (tempo massimo)',
+      will_exceed: 'A questa velocità non si arriva in tempo: alcune frasi resteranno in lingua originale.', already_italian: 'già in italiano', total: 'Totale', from_cache_run: 'dalla cache', last_phase: 'Si è fermato a: {stage}.', avg_prefix: 'media',
       auto_note: "Riassunto automatico: le frasi principali dell'articolo.",
       partial_note: 'Disponibile solo la descrizione dichiarata dal sito.',
       translated: 'Tradotto automaticamente', not_translated: 'Testo originale (traduzione non disponibile)',
@@ -367,6 +394,7 @@ const RSS_LOCALES = {
       show_original:        'Mostra testo originale',
       summary_popup:        'Popup riassunto al click',
       summary_location:     'Mostra il luogo nel titolo del riassunto',
+      summary_stats:        'Statistiche del caricamento nel riassunto',
       title_size:           'Dimensione carattere titolo (px)',
       desc_size:            'Dimensione carattere descrizione (px)',
       color_hint:           'Lascia vuoto per il colore predefinito del tema',
@@ -507,6 +535,7 @@ class RssNewsCard extends HTMLElement {
       show_original: true,
       summary_popup: true,
       summary_location: true,
+      summary_stats: true,
       title_font_size: 15,
       desc_font_size: 14,
       card_title_color: '',
@@ -535,6 +564,11 @@ class RssNewsCard extends HTMLElement {
       // Nel popup, dopo il titolo: il luogo di cui parla l'articolo, tra parentesi (es. "(Longarone, BL)"),
       // ricavato dal server (summarize.php) dal testo originale. false = non mostrarlo.
       summary_location: config.summary_location !== false,
+      // Nel popup: mentre il riassunto si prepara, le fasi con i tempi (pagina, testo, traduzione con quante frasi sono fatte e a che
+      // velocità) e, a fine lavoro, "Statistiche". false = solo il cerchio che gira, come prima.
+      summary_stats:    config.summary_stats !== false,
+      // Ogni quanti ms chiedere l'avanzamento (solo per prove; normalmente 600)
+      summary_poll_ms:  Number(config.summary_poll_ms) > 0 ? Number(config.summary_poll_ms) : 600,
       title_font_size:  config.title_font_size || 15,
       desc_font_size:   config.desc_font_size || 14,
       card_title_color: config.card_title_color || '',
@@ -1027,7 +1061,7 @@ class RssNewsCard extends HTMLElement {
   // retry = true quando l'utente tocca "Riprova la traduzione": salta la copia in
   // memoria e dice al server di fare un tentativo anche se il servizio di
   // traduzione è in pausa (il server ne concede UNO solo).
-  async _fetchSummary(articleUrl, signal, retry = false) {
+  async _fetchSummary(articleUrl, signal, retry = false, rid = '') {
     const cached = retry ? null : this._summaryCache.get(articleUrl);
     // Copia in memoria valida solo 5 minuti: il server ha già la sua cache su
     // disco (risponde in un attimo), e così dopo un aggiornamento del server
@@ -1038,7 +1072,8 @@ class RssNewsCard extends HTMLElement {
     const full = base + (base.includes('?') ? '&' : '?')
       + 'token=' + encodeURIComponent(token)
       + '&url=' + encodeURIComponent(articleUrl)
-      + (retry ? '&retry=1' : '');
+      + (retry ? '&retry=1' : '')
+      + (rid ? '&rid=' + rid : '');
     const t0 = this._t().summary;
     const route = `[${(typeof location !== 'undefined' && location.origin) || '?'} → ${this._originOf(base)}]`;
     // Pagina in HTTPS che chiama un server in HTTP: il browser blocca la
@@ -1094,6 +1129,22 @@ class RssNewsCard extends HTMLElement {
       .rss-sum-list-orig{font-style:italic;font-size:13px;color:var(--secondary-text-color,#aaa);}
       .rss-sum-note{font-size:11px;color:var(--secondary-text-color,#aaa);opacity:0.85;margin-top:10px;}
       .rss-sum-loading{color:var(--secondary-text-color,#aaa);padding:8px 0;}
+      .rss-sum-elapsed{margin-left:4px;font-variant-numeric:tabular-nums;opacity:0.75;font-size:12px;}
+      .rss-sum-prog{font-size:12px;color:var(--secondary-text-color,#aaa);margin-top:2px;}
+      .rss-sum-prow{display:flex;gap:8px;align-items:baseline;padding:2px 0;}
+      .rss-sum-pico{width:14px;text-align:center;flex-shrink:0;}
+      .rss-sum-ok{color:var(--success-color,#4caf50);} .rss-sum-bad{color:var(--error-color,#f44336);}
+      .rss-sum-plabel{font-weight:600;color:var(--primary-text-color,inherit);white-space:nowrap;}
+      .rss-sum-pdet{flex:1;min-width:0;opacity:0.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+      .rss-sum-pms{font-variant-numeric:tabular-nums;white-space:nowrap;}
+      .rss-sum-mini{display:inline-block;width:9px;height:9px;border:2px solid var(--divider-color,#555);border-top-color:var(--primary-color,#03a9f4);border-radius:50%;animation:rss-sum-spin .8s linear infinite;vertical-align:-1px;}
+      .rss-sum-bar{height:4px;border-radius:2px;background:var(--divider-color,rgba(255,255,255,0.15));margin:3px 0 3px 22px;overflow:hidden;}
+      .rss-sum-bar>div{height:100%;background:var(--primary-color,#03a9f4);transition:width .3s ease;}
+      .rss-sum-pnote{margin:1px 0 0 22px;opacity:0.85;font-size:11px;}
+      .rss-sum-pwarn{color:var(--warning-color,#ffa600);opacity:1;}
+      .rss-sum-total .rss-sum-plabel,.rss-sum-total .rss-sum-pms{font-weight:700;}
+      details.rss-sum-stats{margin-top:12px;font-size:12px;color:var(--secondary-text-color,#aaa);}
+      details.rss-sum-stats>summary{cursor:pointer;opacity:0.85;}
       .rss-sum-unavail{font-weight:600;margin-bottom:8px;}
       .rss-sum-fallback-desc{color:var(--secondary-text-color,#aaa);}
       .rss-sum-spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--divider-color,#555);border-top-color:var(--primary-color,#03a9f4);border-radius:50%;animation:rss-sum-spin .8s linear infinite;vertical-align:-2px;margin-right:8px;}
@@ -1108,6 +1159,7 @@ class RssNewsCard extends HTMLElement {
   }
 
   _closeSummaryPopup() {
+    this._stopSummaryProgress();
     if (this._summaryAbort) { try { this._summaryAbort.abort(); } catch {} this._summaryAbort = null; }
     if (this._summaryKeyHandler) {
       document.removeEventListener('keydown', this._summaryKeyHandler);
@@ -1159,19 +1211,178 @@ class RssNewsCard extends HTMLElement {
       : '';
     return html + `<div class="rss-sum-note">${notes.map(n => this._escHtml(n)).join(' · ')}</div>`
       + failBox
-      + (srv ? `<div class="rss-sum-note" style="opacity:0.55;">summarize.php ${this._escHtml(srv)}</div>` : '');
+      + (srv ? `<div class="rss-sum-note" style="opacity:0.55;">summarize.php ${this._escHtml(srv)}</div>` : '')
+      + this._summaryStatsHtml(data, t);
   }
 
   // Se il riassunto non si può ottenere (sito che blocca, paywall, server non
   // raggiungibile...) il popup non resta vuoto: mostra la descrizione che la
   // card aveva già, il motivo del problema, e il bottone per aprire l'articolo.
-  _summaryFallbackHtml(article, err, t) {
+  _summaryFallbackHtml(article, err, t, prog = null) {
     const desc = this._cleanDescription(article.description);
     const reason = err && err.name === 'AbortError' ? 'timeout' : ((err && err.message) || '');
     return `<div class="rss-sum-unavail">${this._escHtml(t.unavailable)}</div>`
       + (desc ? `<div class="rss-sum-fallback-desc">${this._escHtml(desc)}</div>`
               + `<div class="rss-sum-note">${this._escHtml(t.fallback_note)}</div>` : '')
-      + (reason ? `<div class="rss-sum-note">${this._escHtml(t.reason)}: ${this._escHtml(reason)}</div>` : '');
+      + (reason ? `<div class="rss-sum-note">${this._escHtml(t.reason)}: ${this._escHtml(reason)}</div>` : '')
+      + this._summaryStuckHtml(prog, t);
+  }
+
+  // Se la richiesta si è bloccata o è fallita: fin dove era arrivata (utile per capire cosa è lento).
+  _summaryStuckHtml(prog, t) {
+    if (this._config.summary_stats === false || !prog || !prog.stages) return '';
+    const inner = this._summaryProgressHtml(Object.assign({}, prog, { state: 'error' }), t, { live: true });
+    if (!inner) return '';
+    const names = { fetch: t.st_fetch, extract: t.st_extract, summarize: t.st_summarize, place: t.st_place, translate: t.st_translate };
+    const where = prog.stage && names[prog.stage] ? ' · ' + String(t.last_phase).replace('{stage}', names[prog.stage]) : '';
+    return `<details class="rss-sum-stats" open><summary>${this._escHtml(t.stats + where)}</summary><div class="rss-sum-prog">${inner}</div></details>`;
+  }
+
+  // ── Statistiche del caricamento ──────────────────────────────────────────────
+  // Mentre il server prepara il riassunto, la card gli chiede ogni ~0,6 s a che punto è (?progress=<codice>) e mostra le fasi
+  // con i tempi: pagina, testo, riassunto, luogo e traduzione (frasi fatte, secondi a frase, token al secondo di Ollama).
+  _newRid() {
+    try { const a = new Uint8Array(8); crypto.getRandomValues(a); return Array.from(a, (b) => b.toString(16).padStart(2, '0')).join(''); } catch {}
+    let r = ''; for (let i = 0; i < 16; i++) r += Math.floor(Math.random() * 16).toString(16);
+    return r;
+  }
+
+  _fmtSec(ms) {
+    const v = Math.max(0, Number(ms) || 0) / 1000;
+    const txt = v < 10 ? v.toFixed(1) : String(Math.round(v));
+    return ['it', 'de', 'hu'].includes(this._getLang()) ? txt.replace('.', ',') : txt;
+  }
+
+  _fmtNum(n) {
+    const txt = Number(n).toFixed(1);
+    return ['it', 'de', 'hu'].includes(this._getLang()) ? txt.replace('.', ',') : txt;
+  }
+
+  _summaryLoadingHtml(t, elapsedMs, withStats) {
+    return `<div class="rss-sum-loading"><span class="rss-sum-spinner"></span>${this._escHtml(t.loading)}`
+      + (withStats ? ` <span class="rss-sum-elapsed">${this._fmtSec(elapsedMs)} s</span>` : '') + '</div>'
+      + (withStats ? '<div class="rss-sum-prog"></div>' : '');
+  }
+
+  _startSummaryProgress(rid, onUpdate) {
+    const base = this._summarizeFullUrl();
+    const token = (this._config.feed_admin_token || '').trim();
+    const url = base + (base.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(token) + '&progress=' + rid;
+    const every = Math.max(30, Number(this._config.summary_poll_ms) || 600);
+    let stopped = false, timer = null, ctrl = null, bad = 0, last = null;
+    const tick = async () => {
+      if (stopped) return;
+      try {
+        ctrl = new AbortController();
+        const res = await fetch(url, { cache: 'no-store', signal: ctrl.signal });
+        const d = await res.json();
+        if (stopped) return;
+        if (d && d.ok && d.state) { bad = 0; if (d.state !== 'waiting') { last = d; onUpdate(d); } }
+        else if (++bad >= 2) { stopped = true; return; }     // server più vecchio, senza avanzamento: smette di chiedere
+      } catch { if (stopped || ++bad >= 4) { stopped = true; return; } }
+      if (!stopped) timer = setTimeout(tick, every);
+    };
+    timer = setTimeout(tick, Math.min(350, every));
+    return { stop() { stopped = true; clearTimeout(timer); try { if (ctrl) ctrl.abort(); } catch {} }, last: () => last };
+  }
+
+  _stopSummaryProgress() {
+    if (this._summaryProgress) { this._summaryProgress.stop(); this._summaryProgress = null; }
+    if (this._summaryTicker) { clearInterval(this._summaryTicker); this._summaryTicker = null; }
+  }
+
+  // Le righe delle fasi. state = quanto ha scritto il server (in diretta) o le statistiche finali.
+  _summaryProgressHtml(state, t, opts = {}) {
+    const live = !!opts.live;
+    const st = (state && state.stages) || {};
+    const esc = (x) => this._escHtml(x);
+    const fill = (tpl, o) => String(tpl).replace(/\{(\w+)\}/g, (m, k) => (o[k] !== undefined ? o[k] : m));
+    const nowS = state && typeof state.now === 'number' ? state.now : null;
+    const failed = !!state && state.state === 'error';
+    const clock = nowS || (state && state.updated) || null;
+    const names = { fetch: t.st_fetch, extract: t.st_extract, summarize: t.st_summarize, place: t.st_place, translate: t.st_translate };
+    const rows = [];
+    for (const id of ['fetch', 'extract', 'summarize', 'place', 'translate']) {
+      const s = st[id];
+      if (!s) continue;
+      if (id === 'place' && !s.label) continue;                  // nessun luogo trovato: la riga non dice nulla
+      let ico, ms = '';
+      if (s.state === 'done') { ico = '<span class="rss-sum-ok">✓</span>'; ms = this._fmtSec(s.ms) + ' s'; }
+      else if (s.state === 'skipped') { ico = '–'; }
+      else if (failed) { ico = '<span class="rss-sum-bad">✕</span>'; if (clock && s.started) ms = this._fmtSec((clock - s.started) * 1000) + ' s'; }
+      else { ico = '<span class="rss-sum-mini"></span>'; if (nowS && s.started) ms = this._fmtSec((nowS - s.started) * 1000) + ' s'; }
+      let det = '';
+      if (id === 'fetch') det = [s.bytes ? `${Math.max(1, Math.round(s.bytes / 1024))} KB` : '', s.host || ''].filter(Boolean).join(' · ');
+      else if (id === 'extract') det = s.chars != null ? fill(t.n_chars, { n: Number(s.chars).toLocaleString(this._getLang()) }) : '';
+      else if (id === 'summarize') det = s.sentences != null ? fill(t.n_sentences, { n: s.sentences }) : '';
+      else if (id === 'place') det = s.label || '';
+      else if (id === 'translate') {
+        if (s.state === 'skipped') det = t.already_italian;
+        else {
+          const prov = s.provider === 'ollama' ? t.with_ollama + (s.model ? ` (${s.model})` : '') : t.with_google;
+          const fb = s.fallback === 'google' ? `, ${t.then_google}` : (s.fallback === 'ollama' ? `, ${t.then_ollama}` : '');
+          det = prov + fb + (s.total ? ` · ${fill(t.sentences_of, { done: s.done || 0, total: s.total })}` : '');
+        }
+      }
+      rows.push(`<div class="rss-sum-prow ${esc(s.state)}"><span class="rss-sum-pico">${ico}</span><span class="rss-sum-plabel">${esc(names[id])}</span>`
+        + `<span class="rss-sum-pdet">${esc(det)}</span><span class="rss-sum-pms">${esc(ms)}</span></div>`);
+      if (id === 'translate' && s.state !== 'skipped') rows.push(this._summaryTranslateNotes(s, state, t, live, fill));
+    }
+    if (!live && state && state.total_ms) {
+      rows.push(`<div class="rss-sum-prow rss-sum-total"><span class="rss-sum-pico"></span><span class="rss-sum-plabel">${esc(t.total)}</span><span class="rss-sum-pdet"></span><span class="rss-sum-pms">${esc(this._fmtSec(state.total_ms))} s</span></div>`);
+    }
+    return rows.join('');
+  }
+
+  // Sotto la riga della traduzione: barra, secondi a frase, tempo che manca, e dove va il tempo con Ollama.
+  _summaryTranslateNotes(s, state, t, live, fill) {
+    const esc = (x) => this._escHtml(x);
+    const calls = s.calls || 0;
+    const avg = calls ? (s.ms_sum || 0) / calls : 0;
+    const running = s.state === 'running' && !(state && state.state === 'error');
+    const left = Math.max(0, (s.total || 0) - (s.done || 0));
+    const out = [];
+    if (running && s.total) out.push(`<div class="rss-sum-bar"><div style="width:${Math.min(100, Math.round(((s.done || 0) / s.total) * 100))}%"></div></div>`);
+    const parts = [];
+    if (avg) {
+      parts.push(fill(t.per_sentence, { s: this._fmtSec(avg) }));
+      if (running) {
+        parts.push(fill(t.remaining, { s: Math.round((left * avg) / 1000) }));
+        if (s.limit_s) parts.push(fill(t.limit, { s: s.limit_s }));
+      }
+    }
+    if (parts.length) out.push(`<div class="rss-sum-pnote">${esc(parts.join(' · '))}</div>`);
+    // A questa velocità si arriva in tempo? Il server smette di tradurre oltre il tempo massimo: le frasi che mancano restano in originale.
+    if (running && avg && s.limit_s && state && typeof state.now === 'number' && s.started) {
+      if ((state.now - s.started) * 1000 + left * avg > s.limit_s * 1000) out.push(`<div class="rss-sum-pnote rss-sum-pwarn">${esc(t.will_exceed)}</div>`);
+    }
+    // Ollama: dove se ne va il tempo (lettura del testo, scrittura, token al secondo, caricamento del modello)
+    const hasOllama = s.prompt_ms != null || s.gen_ms != null;
+    const ref = live ? s.last : (calls && hasOllama ? { prompt_ms: (s.prompt_ms || 0) / calls, gen_ms: (s.gen_ms || 0) / calls } : null);
+    if (ref && ref.prompt_ms != null && ref.gen_ms != null) {
+      // In diretta si parla dell'ultima frase (token al secondo di quella chiamata); a fine lavoro, di medie su tutte.
+      const tps = live ? (s.last && s.last.tokens_per_s) : (s.gen_ms ? (s.out_tokens || 0) / (s.gen_ms / 1000) : null);
+      const bits = [fill(t.read_write, { r: this._fmtSec(ref.prompt_ms), w: this._fmtSec(ref.gen_ms) })];
+      if (tps) bits.push(fill(t.tokens_s, { n: this._fmtNum(tps) }));
+      if ((s.load_ms || 0) >= 500) bits.push(fill(t.load_model, { s: this._fmtSec(s.load_ms) }));
+      out.push(`<div class="rss-sum-pnote">${esc((live ? '' : t.avg_prefix + ': ') + bits.join(' · '))}</div>`);
+    }
+    const cnt = [];
+    if (s.cache) cnt.push(fill(t.from_cache, { n: s.cache }));
+    if (s.local_it) cnt.push(fill(t.already_it, { n: s.local_it }));
+    if (s.errors) cnt.push(fill(t.failed, { n: s.errors }));
+    if (s.timeout) cnt.push(fill(t.timed_out, { n: s.timeout }));
+    if (cnt.length) out.push(`<div class="rss-sum-pnote${(s.errors || s.timeout) ? ' rss-sum-pwarn' : ''}">${esc(cnt.join(' · '))}</div>`);
+    return out.join('');
+  }
+
+  // A fine lavoro: "Statistiche · 41 s", chiuso; si apre con un tocco.
+  _summaryStatsHtml(data, t) {
+    if (this._config.summary_stats === false || !data || !data.stats || !data.stats.stages) return '';
+    const inner = this._summaryProgressHtml({ stages: data.stats.stages, total_ms: data.stats.total_ms }, t, { live: false });
+    if (!inner) return '';
+    const head = `${t.stats} · ${this._fmtSec(data.stats.total_ms)} s${data.cached ? ` (${t.from_cache_run})` : ''}`;
+    return `<details class="rss-sum-stats"><summary>${this._escHtml(head)}</summary><div class="rss-sum-prog">${inner}</div></details>`;
   }
 
   // Titolo del popup: titolo, luogo tra parentesi (se il server lo ha trovato) e testata.
@@ -1237,12 +1448,29 @@ class RssNewsCard extends HTMLElement {
     // Il caricamento è una funzione perché il bottone "Riprova la traduzione"
     // deve poterlo rifare senza chiudere e riaprire il popup.
     const load = (retry = false) => {
-      body.innerHTML = `<div class="rss-sum-loading"><span class="rss-sum-spinner"></span>${this._escHtml(t.loading)}</div>`;
+      this._stopSummaryProgress();
+      const withStats = this._config.summary_stats !== false;
+      const rid = withStats ? this._newRid() : '';
+      const startedAt = Date.now();
+      body.innerHTML = this._summaryLoadingHtml(t, 0, withStats);
+      if (withStats) {
+        // Le fasi arrivano dal server mentre lavora; il contatore dei secondi corre da solo, sempre.
+        const paint = (d) => {
+          const box = body.querySelector('.rss-sum-prog');
+          if (box && this._summaryOverlay === overlay) box.innerHTML = this._summaryProgressHtml(d, t, { live: true });
+        };
+        this._summaryProgress = this._startSummaryProgress(rid, paint);
+        this._summaryTicker = setInterval(() => {
+          const el = body.querySelector('.rss-sum-elapsed');
+          if (el) el.textContent = this._fmtSec(Date.now() - startedAt) + ' s';
+        }, 250);
+      }
       const ctrl = new AbortController();
       this._summaryAbort = ctrl;
       const timer = setTimeout(() => ctrl.abort(), 50000);
-      this._fetchSummary(article.link, ctrl.signal, retry)
+      this._fetchSummary(article.link, ctrl.signal, retry, rid)
         .then((data) => {
+          this._stopSummaryProgress();
           if (this._summaryOverlay !== overlay) return;
           body.innerHTML = this._summaryBodyHtml(data, t);
           // Il luogo di cui parla l'articolo, dopo il titolo (il server lo ricava dal testo originale)
@@ -1251,7 +1479,11 @@ class RssNewsCard extends HTMLElement {
           const retryBtn = body.querySelector('.rss-sum-retry');
           if (retryBtn) retryBtn.addEventListener('click', () => load(true));
         })
-        .catch((err) => { if (this._summaryOverlay === overlay) body.innerHTML = this._summaryFallbackHtml(article, err, t); })
+        .catch((err) => {
+          const lastProg = this._summaryProgress ? this._summaryProgress.last() : null;
+          this._stopSummaryProgress();
+          if (this._summaryOverlay === overlay) body.innerHTML = this._summaryFallbackHtml(article, err, t, lastProg);
+        })
         .finally(() => clearTimeout(timer));
     };
     load();
@@ -2138,6 +2370,13 @@ class RssNewsCardEditor extends HTMLElement {
               <span class="rss-slider"></span>
             </label>
           </div>
+          <div class="rss-toggle-row">
+            <label for="tog-summary-stats">${t.ed.summary_stats}</label>
+            <label class="rss-toggle">
+              <input type="checkbox" id="tog-summary-stats" ${c.summary_stats !== false ? 'checked' : ''}/>
+              <span class="rss-slider"></span>
+            </label>
+          </div>
         </div>
       </div>`;
 
@@ -2241,6 +2480,7 @@ class RssNewsCardEditor extends HTMLElement {
     bindChk('#tog-original', 'show_original');
     bindChk('#tog-summary', 'summary_popup');
     bindChk('#tog-summary-loc', 'summary_location');
+    bindChk('#tog-summary-stats', 'summary_stats');
 
     bind('#ed-entity', 'entity');
 
@@ -2787,6 +3027,7 @@ class RssNewsCardEditor extends HTMLElement {
     setChk('#tog-original', c.show_original !== false);
     setChk('#tog-summary', c.summary_popup !== false);
     setChk('#tog-summary-loc', c.summary_location !== false);
+    setChk('#tog-summary-stats', c.summary_stats !== false);
     setChk('#tog-auto-height', c.auto_height === true);
     const heightInput = this.querySelector('#ed-height');
     if (heightInput) heightInput.disabled = c.auto_height === true;
