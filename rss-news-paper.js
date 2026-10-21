@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.26.0 · build 2026-10-21-02';
+const CARD_VERSION = 'v1.28.0 · build 2026-10-21-08';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -54,6 +54,7 @@ const RSS_LOCALES = {
       loading: 'Reading the article…', open: 'Open article', close: 'Close',
       stats: 'Statistics', st_fetch: 'Downloading the page', st_extract: 'Extracting the text', st_summarize: 'Building the summary', st_place: 'Finding the place', st_translate: 'Translating',
       with_ollama: 'with Ollama', with_google: 'with Google', then_google: 'then Google', then_ollama: 'then Ollama',
+      with_libre: 'with the local translator', then_libre: 'then the translator',
       sentences_of: '{done}/{total} sentences', n_chars: '{n} characters', n_sentences: '{n} sentences', per_sentence: '{s} s per sentence', remaining: 'about {s} s left', limit: 'limit {s} s',
       read_write: 'reading {r} s · writing {w} s', tokens_s: '{n} tokens/s', load_model: 'model loading {s} s',
       from_cache: '{n} from cache', already_it: '{n} already Italian', failed: '{n} failed', timed_out: '{n} untranslated (time limit)',
@@ -109,7 +110,6 @@ const RSS_LOCALES = {
       tr_model:          'Model',
       tr_check:          'Check and load models',
       tr_test:           'Try a translation',
-      tr_fallback:       'If Ollama does not answer, use Google',
       tr_save:           'Save on the server',
       tr_hint:           'The news server does the translating, not the phone: this address must be reachable from it (same network) and Ollama must listen on all interfaces (OLLAMA_HOST=0.0.0.0).',
       tr_need_token:     'Enter the feed admin token first.',
@@ -131,7 +131,26 @@ const RSS_LOCALES = {
       tr_net_mixed:      'Home Assistant is open over HTTPS but the news server is HTTP: the browser blocks the request (mixed content).',
       tr_testing_s:      'Translating… {s} s',
       tr_stats:          ' (model loading {load} s, {tps} tokens/s)',
-      tr_fallback_ollama: 'If Google is exhausted, use Ollama',
+      tr_libre:          'Local translator (POST /translate, e.g. LibreTranslate)',
+      tr_lhost:          'Translator server IP or name',
+      tr_lpath:          'Path of the translation endpoint',
+      tr_lsource:        'Source language (auto = the service detects it; or a code like "en")',
+      tr_lcheck:         'Check connection',
+      tr_order_hint:     'Pick the order: the first service is tried first; if it does not answer (or is exhausted) the next one takes over.',
+      tr_first:          'First choice',
+      tr_second:         'If it does not answer, then',
+      tr_third:          'Then, if needed',
+      tr_none:           '— nothing —',
+      tr_checking_l:     'Checking the translator…',
+      tr_lhint:          'The service must answer POST to this path with {"q": text, "source": "en", "target": "it"} and return {"translatedText": …}. No API key: the settings are saved in a folder that may be visible from the web.',
+      tr_l_ok:           'Connected: {n} languages; to Italian from: {from}.',
+      tr_l_noit:         'Connected, but the service does not offer Italian.',
+      tr_l_nolist:       'The service has no language list (that can be normal): try a translation.',
+      tr_l_test_ok:      'Translated in {s} s: {text}',
+      tr_l_detected:     ' (detected language: {lang})',
+      tr_l_last:         'Translator: last translation {time} ({s} s).',
+      tr_l_err:          'Translator: last error at {time}: {msg}',
+      tr_l_need_host:    'Enter the translator server IP first.',
       tr_threads:        'CPU threads (0 = automatic)',
       tr_threads_hint:   'If another add-on (e.g. Frigate) uses the CPU, try fewer threads than the free cores (2, 3…) and press "Try a translation": compare the tokens/s.',
       tr_stats2:         ' (model loading {load} s, reading the text {prompt} s, writing {tps} tokens/s)',
@@ -156,6 +175,7 @@ const RSS_LOCALES = {
       loading: 'A cikk beolvasása…', open: 'Cikk megnyitása', close: 'Bezárás',
       stats: 'Statisztika', st_fetch: 'Az oldal letöltése', st_extract: 'A szöveg kinyerése', st_summarize: 'Az összefoglaló készítése', st_place: 'A hely keresése', st_translate: 'Fordítás olaszra',
       with_ollama: 'Ollamával', with_google: 'Google-lel', then_google: 'majd Google', then_ollama: 'majd Ollama',
+      with_libre: 'a helyi fordítóval', then_libre: 'majd a fordító',
       sentences_of: '{done}/{total} mondat', n_chars: '{n} karakter', n_sentences: '{n} mondat', per_sentence: '{s} mp / mondat', remaining: 'még kb. {s} mp', limit: 'határ: {s} mp',
       read_write: 'olvasás {r} mp · írás {w} mp', tokens_s: '{n} token/mp', load_model: 'modell betöltése {s} mp',
       from_cache: '{n} gyorsítótárból', already_it: '{n} már olasz', failed: '{n} sikertelen', timed_out: '{n} fordítatlan (időkorlát)',
@@ -211,7 +231,6 @@ const RSS_LOCALES = {
       tr_model:            'Modell',
       tr_check:            'Ellenőrzés és modellek betöltése',
       tr_test:             'Fordítás kipróbálása',
-      tr_fallback:         'Ha az Ollama nem válaszol, használja a Google-t',
       tr_save:             'Mentés a szerveren',
       tr_hint:             'A fordítást a hírszerver végzi, nem a telefon: a címnek onnan elérhetőnek kell lennie (azonos hálózat), és az Ollamának minden interfészen figyelnie kell (OLLAMA_HOST=0.0.0.0).',
       tr_need_token:       'Először add meg a források adminisztrációs tokenjét.',
@@ -233,7 +252,26 @@ const RSS_LOCALES = {
       tr_net_mixed:        'A Home Assistant HTTPS-en van megnyitva, a hírszerver viszont HTTP: a böngésző blokkolja a kérést (vegyes tartalom).',
       tr_testing_s:        'Fordítás… {s} mp',
       tr_stats:            ' (modell betöltése {load} mp, {tps} token/mp)',
-      tr_fallback_ollama:  'Ha a Google kimerült, használja az Ollamát',
+      tr_libre:            'Helyi fordító (POST /translate, pl. LibreTranslate)',
+      tr_lhost:            'A fordítószerver IP-címe vagy neve',
+      tr_lpath:            'A fordítási végpont útvonala',
+      tr_lsource:          'Forrásnyelv (auto = a szolgáltatás felismeri; vagy kód, pl. "en")',
+      tr_lcheck:           'Kapcsolat ellenőrzése',
+      tr_order_hint:       'Válaszd ki a sorrendet: az első szolgáltatást próbálja először; ha nem válaszol (vagy kimerült), a következő veszi át.',
+      tr_first:            'Első választás',
+      tr_second:           'Ha nem válaszol, akkor',
+      tr_third:            'Utána, ha kell',
+      tr_none:             '— semmi —',
+      tr_checking_l:       'A fordító ellenőrzése…',
+      tr_lhint:            'A szolgáltatásnak a POST kérésre {"q": szöveg, "source": "en", "target": "it"} formában kell válaszolnia, és {"translatedText": …} választ adnia. API-kulcs nincs: a beállítások a weben látható mappában tárolódnak.',
+      tr_l_ok:             'Kapcsolódva: {n} nyelv; olaszra ezekből: {from}.',
+      tr_l_noit:           'Kapcsolódva, de a szolgáltatás nem kínál olaszt.',
+      tr_l_nolist:         'A szolgáltatásnak nincs nyelvlistája (ez normális lehet): próbálj ki egy fordítást.',
+      tr_l_test_ok:        'Lefordítva {s} mp alatt: {text}',
+      tr_l_detected:       ' (felismert nyelv: {lang})',
+      tr_l_last:           'Fordító: utolsó fordítás {time} ({s} mp).',
+      tr_l_err:            'Fordító: utolsó hiba {time}: {msg}',
+      tr_l_need_host:      'Előbb add meg a fordítószerver IP-címét.',
       tr_threads:          'CPU-szálak (0 = automatikus)',
       tr_threads_hint:     'Ha másik kiegészítő (pl. Frigate) is használja a CPU-t, próbálj a szabad magoknál kevesebb szálat (2, 3…), majd nyomd meg a „Fordítás kipróbálása” gombot: hasonlítsd össze a token/mp értéket.',
       tr_stats2:           ' (modell betöltése {load} mp, szöveg beolvasása {prompt} mp, írás {tps} token/mp)',
@@ -258,6 +296,7 @@ const RSS_LOCALES = {
       loading: 'Artikel wird gelesen…', open: 'Artikel öffnen', close: 'Schließen',
       stats: 'Statistik', st_fetch: 'Seite wird geladen', st_extract: 'Text wird extrahiert', st_summarize: 'Zusammenfassung wird erstellt', st_place: 'Ort wird gesucht', st_translate: 'Übersetzung ins Italienische',
       with_ollama: 'mit Ollama', with_google: 'mit Google', then_google: 'dann Google', then_ollama: 'dann Ollama',
+      with_libre: 'mit dem lokalen Übersetzer', then_libre: 'dann der Übersetzer',
       sentences_of: '{done}/{total} Sätze', n_chars: '{n} Zeichen', n_sentences: '{n} Sätze', per_sentence: '{s} s pro Satz', remaining: 'noch ca. {s} s', limit: 'Limit {s} s',
       read_write: 'Lesen {r} s · Schreiben {w} s', tokens_s: '{n} Token/s', load_model: 'Modell laden {s} s',
       from_cache: '{n} aus dem Cache', already_it: '{n} bereits Italienisch', failed: '{n} fehlgeschlagen', timed_out: '{n} unübersetzt (Zeitlimit)',
@@ -313,7 +352,6 @@ const RSS_LOCALES = {
       tr_model:            'Modell',
       tr_check:            'Prüfen und Modelle laden',
       tr_test:             'Übersetzung testen',
-      tr_fallback:         'Wenn Ollama nicht antwortet, Google verwenden',
       tr_save:             'Auf dem Server speichern',
       tr_hint:             'Den Nachrichtenserver übersetzt, nicht das Handy: Die Adresse muss von dort erreichbar sein (gleiches Netz) und Ollama muss auf allen Schnittstellen lauschen (OLLAMA_HOST=0.0.0.0).',
       tr_need_token:       'Gib zuerst das Feed-Admin-Token ein.',
@@ -335,7 +373,26 @@ const RSS_LOCALES = {
       tr_net_mixed:        'Home Assistant ist über HTTPS geöffnet, der News-Server aber nur über HTTP: Der Browser blockiert die Anfrage (Mixed Content).',
       tr_testing_s:        'Übersetze… {s} s',
       tr_stats:            ' (Modell laden {load} s, {tps} Token/s)',
-      tr_fallback_ollama:  'Wenn Google erschöpft ist, Ollama verwenden',
+      tr_libre:            'Lokaler Übersetzer (POST /translate, z. B. LibreTranslate)',
+      tr_lhost:            'IP oder Name des Übersetzer-Servers',
+      tr_lpath:            'Pfad des Übersetzungs-Endpunkts',
+      tr_lsource:          'Ausgangssprache (auto = der Dienst erkennt sie; oder ein Code wie "en")',
+      tr_lcheck:           'Verbindung prüfen',
+      tr_order_hint:       'Reihenfolge wählen: Der erste Dienst wird zuerst versucht; antwortet er nicht (oder ist erschöpft), übernimmt der nächste.',
+      tr_first:            'Erste Wahl',
+      tr_second:           'Wenn er nicht antwortet, dann',
+      tr_third:            'Danach, falls nötig',
+      tr_none:             '— nichts —',
+      tr_checking_l:       'Übersetzer wird geprüft…',
+      tr_lhint:            'Der Dienst muss auf POST an diesen Pfad mit {"q": Text, "source": "en", "target": "it"} antworten und {"translatedText": …} liefern. Kein API-Schlüssel: Die Einstellungen liegen in einem Ordner, der im Web sichtbar sein kann.',
+      tr_l_ok:             'Verbunden: {n} Sprachen; ins Italienische aus: {from}.',
+      tr_l_noit:           'Verbunden, aber der Dienst bietet kein Italienisch.',
+      tr_l_nolist:         'Der Dienst hat keine Sprachliste (kann normal sein): Übersetzung testen.',
+      tr_l_test_ok:        'In {s} s übersetzt: {text}',
+      tr_l_detected:       ' (erkannte Sprache: {lang})',
+      tr_l_last:           'Übersetzer: letzte Übersetzung {time} ({s} s).',
+      tr_l_err:            'Übersetzer: letzter Fehler um {time}: {msg}',
+      tr_l_need_host:      'Zuerst die IP des Übersetzer-Servers eingeben.',
       tr_threads:          'CPU-Threads (0 = automatisch)',
       tr_threads_hint:     'Wenn ein anderes Add-on (z. B. Frigate) die CPU nutzt, probiere weniger Threads als freie Kerne (2, 3 …) und drücke „Übersetzung testen“: Vergleiche die Token/s.',
       tr_stats2:           ' (Modell laden {load} s, Text lesen {prompt} s, Schreiben {tps} Token/s)',
@@ -360,6 +417,7 @@ const RSS_LOCALES = {
       loading: "Sto leggendo l'articolo…", open: 'Apri articolo', close: 'Chiudi',
       stats: 'Statistiche', st_fetch: 'Scarico la pagina', st_extract: 'Estraggo il testo', st_summarize: 'Creo il riassunto', st_place: 'Cerco il luogo', st_translate: 'Traduco in italiano',
       with_ollama: 'con Ollama', with_google: 'con Google', then_google: 'poi Google', then_ollama: 'poi Ollama',
+      with_libre: 'con il traduttore locale', then_libre: 'poi il traduttore',
       sentences_of: '{done}/{total} frasi', n_chars: '{n} caratteri', n_sentences: '{n} frasi', per_sentence: '{s} s a frase', remaining: 'ancora circa {s} s', limit: 'limite {s} s',
       read_write: 'lettura {r} s · scrittura {w} s', tokens_s: '{n} token/s', load_model: 'caricamento modello {s} s',
       from_cache: '{n} dalla cache', already_it: '{n} già in italiano', failed: '{n} non riuscite', timed_out: '{n} non tradotte (tempo massimo)',
@@ -415,7 +473,6 @@ const RSS_LOCALES = {
       tr_model:             'Modello',
       tr_check:             'Verifica e carica modelli',
       tr_test:              'Prova una traduzione',
-      tr_fallback:          'Se Ollama non risponde, usa Google',
       tr_save:              'Salva sul server',
       tr_hint:              "La traduzione la fa il server delle notizie, non il telefono: l'indirizzo deve essere raggiungibile da lì (stessa rete) e Ollama deve ascoltare su tutte le interfacce (OLLAMA_HOST=0.0.0.0).",
       tr_need_token:        'Inserisci prima il token amministrazione fonti.',
@@ -437,7 +494,26 @@ const RSS_LOCALES = {
       tr_net_mixed:         'Home Assistant è aperto in HTTPS ma il server delle notizie è in HTTP: il browser blocca la richiesta (contenuto misto).',
       tr_testing_s:         'Traduco… {s} s',
       tr_stats:             ' (caricamento del modello {load} s, {tps} token/s)',
-      tr_fallback_ollama:   'Se Google è esaurito, usa Ollama',
+      tr_libre:             'Traduttore locale (POST /translate, es. LibreTranslate)',
+      tr_lhost:             'IP o nome del server del traduttore',
+      tr_lpath:             'Percorso dell\'indirizzo di traduzione',
+      tr_lsource:           'Lingua di partenza (auto = la riconosce il servizio; oppure un codice come "en")',
+      tr_lcheck:            'Verifica collegamento',
+      tr_order_hint:        'Scegli l\'ordine: il primo servizio si prova per primo; se non risponde (o è esaurito) subentra il successivo.',
+      tr_first:             'Prima scelta',
+      tr_second:            'Se non risponde, poi',
+      tr_third:             'Poi ancora, se serve',
+      tr_none:              '— niente —',
+      tr_checking_l:        'Controllo il traduttore…',
+      tr_lhint:             'Il servizio deve rispondere a POST su questo percorso con {"q": testo, "source": "en", "target": "it"} e restituire {"translatedText": …}. Nessuna chiave API: le impostazioni stanno in una cartella che può essere visibile dal web.',
+      tr_l_ok:              'Collegato: {n} lingue; verso l\'italiano da: {from}.',
+      tr_l_noit:            'Collegato, ma il servizio non offre l\'italiano.',
+      tr_l_nolist:          'Il servizio non ha l\'elenco delle lingue (può essere normale): prova una traduzione.',
+      tr_l_test_ok:         'Tradotto in {s} s: {text}',
+      tr_l_detected:        ' (lingua rilevata: {lang})',
+      tr_l_last:            'Traduttore: ultima traduzione {time} ({s} s).',
+      tr_l_err:             'Traduttore: ultimo errore alle {time}: {msg}',
+      tr_l_need_host:       'Scrivi prima l\'IP del server del traduttore.',
       tr_threads:           'Thread CPU (0 = automatico)',
       tr_threads_hint:      'Se un altro add-on (ad esempio Frigate) usa la CPU, prova meno thread dei core liberi (2, 3…) e premi "Prova una traduzione": confronta i token/s.',
       tr_stats2:            ' (caricamento del modello {load} s, lettura del testo {prompt} s, scrittura {tps} token/s)',
@@ -1319,8 +1395,13 @@ class RssNewsCard extends HTMLElement {
       else if (id === 'translate') {
         if (s.state === 'skipped') det = t.already_italian;
         else {
-          const prov = s.provider === 'ollama' ? t.with_ollama + (s.model ? ` (${s.model})` : '') : t.with_google;
-          const fb = s.fallback === 'google' ? `, ${t.then_google}` : (s.fallback === 'ollama' ? `, ${t.then_ollama}` : '');
+          // I servizi nell'ordine in cui si provano: "con il traduttore (ip:porta), poi Ollama (modello), poi Google"
+          const chain = Array.isArray(s.chain) && s.chain.length ? s.chain : [s.provider, s.fallback].filter(Boolean);
+          const lab = (e, first) => (e === 'ollama' ? (first ? t.with_ollama : t.then_ollama) + (s.model ? ` (${s.model})` : '')
+            : (e === 'libre' ? (first ? t.with_libre : t.then_libre) + (s.endpoint ? ` (${s.endpoint})` : '')
+              : (first ? t.with_google : t.then_google)));
+          const prov = chain.map((e, i) => lab(e, i === 0)).join(', ');
+          const fb = '';
           det = prov + fb + (s.total ? ` · ${fill(t.sentences_of, { done: s.done || 0, total: s.total })}` : '');
         }
       }
@@ -2255,12 +2336,18 @@ class RssNewsCardEditor extends HTMLElement {
           <div id="ed-opml-status" style="font-size:11px;opacity:0.7;margin-top:4px;">${t.ed.opml_hint}</div>
 
           <label style="margin-top:14px;">${t.ed.tr_provider}</label>
+          <div style="font-size:11px;opacity:0.7;margin:2px 0 6px;">${t.ed.tr_order_hint}</div>
+          <label>${t.ed.tr_first}</label>
           <select id="ed-tr-provider" style="width:100%;">
             <option value="google">${t.ed.tr_google}</option>
             <option value="ollama">${t.ed.tr_ollama}</option>
+            <option value="libre">${t.ed.tr_libre}</option>
           </select>
-          <label id="ed-tr-fbo-row" style="display:flex;gap:8px;align-items:center;margin-top:8px;"><input type="checkbox" id="ed-tr-fallback-ollama"/> ${t.ed.tr_fallback_ollama}</label>
-          <div id="ed-tr-ollama" hidden style="margin-top:8px;">
+          <label style="margin-top:8px;">${t.ed.tr_second}</label>
+          <select id="ed-tr-second" style="width:100%;"></select>
+          <label style="margin-top:8px;">${t.ed.tr_third}</label>
+          <select id="ed-tr-third" style="width:100%;"></select>
+          <div id="ed-tr-ollama" hidden style="margin-top:10px;">
             <label>${t.ed.tr_host}</label>
             <div class="rss-src-row" style="flex-wrap:wrap;">
               <input type="text" id="ed-tr-host" placeholder="192.168.1.6" autocomplete="off" style="flex:1 1 150px;min-width:0;"/>
@@ -2275,9 +2362,22 @@ class RssNewsCardEditor extends HTMLElement {
             <label style="margin-top:8px;">${t.ed.tr_threads}</label>
             <div class="rss-src-row"><input type="number" id="ed-tr-threads" value="0" min="0" max="64" style="flex:0 0 90px;min-width:0;"/></div>
             <div style="font-size:11px;opacity:0.7;margin-top:4px;">${t.ed.tr_threads_hint}</div>
-            <label id="ed-tr-fbg-row" style="display:flex;gap:8px;align-items:center;margin-top:8px;"><input type="checkbox" id="ed-tr-fallback"/> ${t.ed.tr_fallback}</label>
             <div class="rss-src-row" style="margin-top:8px;"><button class="rss-add" id="ed-tr-test">${t.ed.tr_test}</button></div>
             <div style="font-size:11px;opacity:0.7;margin-top:6px;">${t.ed.tr_hint}</div>
+          </div>
+          <div id="ed-tr-libre" hidden style="margin-top:10px;">
+            <label>${t.ed.tr_lhost}</label>
+            <div class="rss-src-row" style="flex-wrap:wrap;">
+              <input type="text" id="ed-tr-lhost" placeholder="192.168.1.6" autocomplete="off" style="flex:1 1 150px;min-width:0;"/>
+              <label style="flex:0 0 auto;margin:0;align-self:center;">${t.ed.tr_port}</label>
+              <input type="number" id="ed-tr-lport" value="11434" min="1" max="65535" style="flex:0 0 90px;min-width:0;"/>
+            </div>
+            <label style="margin-top:8px;">${t.ed.tr_lpath}</label>
+            <div class="rss-src-row"><input type="text" id="ed-tr-lpath" value="/translate" autocomplete="off" style="flex:1 1 150px;min-width:0;"/></div>
+            <label style="margin-top:8px;">${t.ed.tr_lsource}</label>
+            <div class="rss-src-row"><input type="text" id="ed-tr-lsource" value="auto" autocomplete="off" style="flex:0 0 110px;min-width:0;"/></div>
+            <div class="rss-src-row" style="margin-top:8px;"><button class="rss-add" id="ed-tr-lcheck">${t.ed.tr_lcheck}</button><button class="rss-add" id="ed-tr-ltest">${t.ed.tr_test}</button></div>
+            <div style="font-size:11px;opacity:0.7;margin-top:6px;">${t.ed.tr_lhint}</div>
           </div>
           <div class="rss-src-row" style="margin-top:10px;"><button class="rss-add" id="ed-tr-save">${t.ed.tr_save}</button></div>
           <div id="ed-tr-status" style="font-size:11px;opacity:0.8;margin-top:6px;white-space:pre-wrap;"></div>
@@ -2515,13 +2615,28 @@ class RssNewsCardEditor extends HTMLElement {
     }
     // Dove tradurre: le impostazioni stanno sul server (translate_admin.php), perché a
     // tradurre sono gli script PHP; l'editor le legge e le salva da lì.
-    const trProv = this.querySelector('#ed-tr-provider');
-    if (trProv) trProv.addEventListener('change', () => this._trToggle());
-    const trFbo = this.querySelector('#ed-tr-fallback-ollama');
-    if (trFbo) trFbo.addEventListener('change', () => this._trToggle());
+    // Ordine dei servizi: cambiando una scelta si aggiornano le altre (un servizio non può comparire due volte)
+    ['#ed-tr-provider', '#ed-tr-second', '#ed-tr-third'].forEach((id) => {
+      const el = this.querySelector(id);
+      if (!el) return;
+      el.addEventListener('change', () => {
+        // Se la nuova prima scelta era già la seconda (o la terza), le due si scambiano: non si perde nessun servizio.
+        let forced;
+        if (id === '#ed-tr-provider' && this._trPrevFirst) {
+          const sec = this.querySelector('#ed-tr-second'), thr = this.querySelector('#ed-tr-third');
+          if (sec && el.value === sec.value) forced = { second: this._trPrevFirst, third: thr ? thr.value : '' };
+          else if (thr && el.value === thr.value) forced = { second: sec ? sec.value : '', third: this._trPrevFirst };
+        }
+        this._trSyncOrder(forced);
+        this._trToggle();
+      });
+    });
+    this._trSyncOrder();
     const trBind = (id, fn) => { const el = this.querySelector(id); if (el) el.addEventListener('click', fn); };
     trBind('#ed-tr-check', () => this._trCheck());
     trBind('#ed-tr-test', () => this._trTest());
+    trBind('#ed-tr-lcheck', () => this._trLibreCheck());
+    trBind('#ed-tr-ltest', () => this._trLibreTest());
     trBind('#ed-tr-save', () => this._trSave());
     const opmlOpenBtn = this.querySelector('#ed-opml-open');
     if (opmlOpenBtn) {
@@ -2604,19 +2719,43 @@ class RssNewsCardEditor extends HTMLElement {
   _trFmt(tpl, vars) { return String(tpl).replace(/\{(\w+)\}/g, (m, k) => (vars[k] !== undefined ? vars[k] : m)); }
   _trTime(ts) { return new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
 
-  // Con "Google" i campi di Ollama servono solo se Ollama è il suo ripiego; con "Ollama" servono sempre, e
-  // c'è la scelta inversa (ripiegare su Google). I due interruttori non hanno senso insieme.
+  // I servizi scelti, nell'ordine: ["libre", "ollama", "google"]. Vuoti e ripetizioni non contano.
+  _trOrder() {
+    const val = (id) => { const el = this.querySelector(id); return el ? el.value : ''; };
+    const out = [];
+    [val('#ed-tr-provider') || 'google', val('#ed-tr-second'), val('#ed-tr-third')].forEach((e) => { if (e && !out.includes(e)) out.push(e); });
+    return out;
+  }
+
+  // Riempie i menu "poi": ognuno offre solo i servizi non ancora scelti; la terza scelta c'è solo se c'è la seconda.
+  _trSyncOrder(forced) {
+    const t = this._t().ed;
+    const first = this.querySelector('#ed-tr-provider'), second = this.querySelector('#ed-tr-second'), third = this.querySelector('#ed-tr-third');
+    if (!first || !second || !third) return;
+    const names = { google: t.tr_google, ollama: t.tr_ollama, libre: t.tr_libre };
+    const fill = (sel, taken, want) => {
+      sel.innerHTML = '';
+      sel.appendChild(new Option(t.tr_none, ''));
+      ['google', 'ollama', 'libre'].filter((e) => !taken.includes(e)).forEach((e) => sel.appendChild(new Option(names[e], e)));
+      sel.value = want && !taken.includes(want) ? want : '';
+    };
+    const f = forced || {};
+    if (f.first) first.value = f.first;
+    fill(second, [first.value], f.second !== undefined ? f.second : second.value);
+    third.disabled = !second.value;
+    fill(third, [first.value, second.value], second.value ? (f.third !== undefined ? f.third : third.value) : '');
+    third.disabled = !second.value;
+    this._trPrevFirst = first.value;          // serve a scambiare le scelte se la nuova prima era già seconda o terza
+  }
+
+  // Compaiono i campi dei servizi scelti: Ollama (indirizzo, modello…) e/o il traduttore (indirizzo, percorso…).
   _trToggle() {
-    const prov = this.querySelector('#ed-tr-provider');
     const box = this.querySelector('#ed-tr-ollama');
-    const fbo = this.querySelector('#ed-tr-fallback-ollama');
-    const fboRow = this.querySelector('#ed-tr-fbo-row');
-    const fbgRow = this.querySelector('#ed-tr-fbg-row');
-    if (!prov || !box) return;
-    const google = prov.value !== 'ollama';
-    if (fboRow) fboRow.hidden = !google;
-    if (fbgRow) fbgRow.hidden = google;
-    box.hidden = google && !(fbo && fbo.checked);
+    const lbox = this.querySelector('#ed-tr-libre');
+    if (!box) return;
+    const order = this._trOrder();
+    box.hidden = !order.includes('ollama');
+    if (lbox) lbox.hidden = !order.includes('libre');
   }
 
   // Riempie il menu dei modelli. Se il modello salvato non è nell'elenco lo si tiene comunque
@@ -2652,8 +2791,20 @@ class RssNewsCardEditor extends HTMLElement {
       set('#ed-tr-host', o.host || '');
       set('#ed-tr-port', o.port || 11434);
       set('#ed-tr-threads', o.threads || 0);
-      const fb = this.querySelector('#ed-tr-fallback'); if (fb) fb.checked = !!o.fallback_google;
-      const fbo = this.querySelector('#ed-tr-fallback-ollama'); if (fbo) fbo.checked = !!o.fallback_ollama;
+      const l = st.libre || {};
+      set('#ed-tr-lhost', l.host || '');
+      set('#ed-tr-lport', l.port || 11434);
+      set('#ed-tr-lpath', l.path || '/translate');
+      set('#ed-tr-lsource', l.source || 'auto');
+      // L'ordine arriva dal server; se è un server meno recente lo si ricava da servizio + interruttori di ripiego.
+      let order = Array.isArray(st.order) && st.order.length ? st.order.slice(0, 3) : null;
+      if (!order) {
+        const p = st.provider || 'google';
+        order = p === 'ollama' ? ['ollama'].concat(o.fallback_google ? ['google'] : [])
+          : (p === 'libre' ? ['libre'].concat(l.fallback_google ? ['google'] : [])
+            : ['google'].concat(o.fallback_ollama ? ['ollama'] : [], l.fallback_libre ? ['libre'] : []));
+      }
+      this._trSyncOrder({ first: order[0], second: order[1] || '', third: order[2] || '' });
       this._trFillModels([], o.model || '');
       this._trToggle();
       const s = d.status || {};
@@ -2665,6 +2816,8 @@ class RssNewsCardEditor extends HTMLElement {
       }
       if (s.ollama && s.ollama.last_ok) lines.push(this._trFmt(t.tr_o_last, { time: this._trTime(s.ollama.last_ok), s: Math.round(s.ollama.last_ms / 100) / 10, model: s.ollama.last_model }));
       if (s.ollama && s.ollama.last_error && s.ollama.last_error_at) lines.push(this._trFmt(t.tr_o_err, { time: this._trTime(s.ollama.last_error_at), msg: s.ollama.last_error }));
+      if (s.libre && s.libre.last_ok) lines.push(this._trFmt(t.tr_l_last, { time: this._trTime(s.libre.last_ok), s: Math.round(s.libre.last_ms / 100) / 10 }));
+      if (s.libre && s.libre.last_error && s.libre.last_error_at) lines.push(this._trFmt(t.tr_l_err, { time: this._trTime(s.libre.last_error_at), msg: s.libre.last_error }));
       if (s.cache_entries) lines.push(this._trFmt(t.tr_cache, { n: s.cache_entries }));
       this._trSay(lines.join('\n'));
     } catch (e) {
@@ -2674,11 +2827,12 @@ class RssNewsCardEditor extends HTMLElement {
 
   _trForm() {
     const v = (id) => { const el = this.querySelector(id); return el ? el.value.trim() : ''; };
+    const order = this._trOrder();
     return {
-      provider: v('#ed-tr-provider') || 'google',
+      order, provider: order[0] || 'google',
       host: v('#ed-tr-host'), port: v('#ed-tr-port'), model: v('#ed-tr-model'), threads: v('#ed-tr-threads') || '0',
-      fallback_google: !!(this.querySelector('#ed-tr-fallback') || {}).checked,
-      fallback_ollama: !!(this.querySelector('#ed-tr-fallback-ollama') || {}).checked,
+      // traduttore locale
+      lhost: v('#ed-tr-lhost'), lport: v('#ed-tr-lport'), lpath: v('#ed-tr-lpath') || '/translate', lsource: v('#ed-tr-lsource') || 'auto',
     };
   }
 
@@ -2724,10 +2878,45 @@ class RssNewsCardEditor extends HTMLElement {
     } catch (e) { clearInterval(timer); this._trSay(this._trFmt(t.tr_err, { msg: e.message }), true); }
   }
 
+  // Traduttore locale: verifica del collegamento (elenco delle lingue)
+  async _trLibreCheck() {
+    const t = this._t().ed; const f = this._trForm();
+    if (!f.lhost) { this._trSay(t.tr_l_need_host, true); return; }
+    this._trSay(t.tr_checking_l);
+    try {
+      const d = await this._trApi({ action: 'libre_check', host: f.lhost, port: f.lport, path: f.lpath });
+      if (!d.ok) {
+        // Senza elenco delle lingue il servizio può funzionare lo stesso: non è un errore, si prova una traduzione.
+        if (d.kind === 'format') this._trSay(t.tr_l_nolist); else this._trSay(this._trFmt(t.tr_err, { msg: d.error }), true);
+        return;
+      }
+      if (!d.has_italian) { this._trSay(t.tr_l_noit, true); return; }
+      this._trSay(this._trFmt(t.tr_l_ok, { n: (d.languages || []).length, from: (d.to_italian || []).join(', ') || '–' }));
+    } catch (e) { this._trSay(this._trFmt(t.tr_err, { msg: e.message }), true); }
+  }
+
+  // Traduttore locale: prova di una traduzione, con i secondi che passano
+  async _trLibreTest() {
+    const t = this._t().ed; const f = this._trForm();
+    if (!f.lhost) { this._trSay(t.tr_l_need_host, true); return; }
+    const t0 = Date.now();
+    const tick = () => this._trSay(this._trFmt(t.tr_testing_s, { s: Math.round((Date.now() - t0) / 1000) }));
+    tick();
+    const timer = setInterval(tick, 1000);
+    try {
+      const d = await this._trApi({ action: 'libre_test', host: f.lhost, port: f.lport, path: f.lpath, source: f.lsource }, 40000);
+      clearInterval(timer);
+      if (!d.ok) { this._trSay(this._trFmt(t.tr_err, { msg: d.error }), true); return; }
+      this._trSay(this._trFmt(t.tr_l_test_ok, { s: Math.round(d.ms / 100) / 10, text: d.translation }) + (d.detected ? this._trFmt(t.tr_l_detected, { lang: d.detected }) : ''));
+    } catch (e) { clearInterval(timer); this._trSay(this._trFmt(t.tr_err, { msg: e.message }), true); }
+  }
+
   async _trSave() {
     const t = this._t().ed; const f = this._trForm();
     try {
-      const d = await this._trApi({ action: 'save', provider: f.provider, ollama: { host: f.host, port: f.port, model: f.model, fallback_google: f.fallback_google, fallback_ollama: f.fallback_ollama, threads: f.threads } });
+      const d = await this._trApi({ action: 'save', order: f.order, provider: f.provider,
+        ollama: { host: f.host, port: f.port, model: f.model, threads: f.threads },
+        libre: { host: f.lhost, port: f.lport, path: f.lpath, source: f.lsource } });
       if (!d.ok) { this._trSay(this._trFmt(t.tr_err, { msg: d.error }), true); return; }
       this._trSay(t.tr_saved);
     } catch (e) { this._trSay(this._trFmt(t.tr_err, { msg: e.message }), true); }
