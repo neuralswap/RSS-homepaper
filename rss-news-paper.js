@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.29.0 · build 2026-10-23-01';
+const CARD_VERSION = 'v1.29.1 · build 2026-10-23-02';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -1797,53 +1797,100 @@ class RssNewsCard extends HTMLElement {
   }
 
   // ── Larghezza della card ─────────────────────────────────────────────────────
-  // Il contenitore "#columns" della vista masonry di Home Assistant (null se la card sta in un'altra vista:
-  // pannello, sezioni...). Si risale l'albero attraversando gli shadow DOM.
-  _findMasonryColumns() {
+  // La vista di Home Assistant che contiene la card: masonry, sezioni, pannello... Si risale l'albero attraversando gli
+  // shadow DOM. Ritorna { el, kind } oppure null (card fuori da una vista, es. in un'anteprima).
+  _findView() {
+    const kinds = { 'hui-masonry-view': 'masonry', 'hui-sections-view': 'sezioni', 'hui-panel-view': 'pannello', 'hui-sidebar-view': 'sidebar' };
     let n = this;
-    for (let i = 0; n && i < 40; i++) {
-      if (n.id === 'columns') return n;
+    for (let i = 0; n && i < 80; i++) {
+      const tag = (n.tagName || '').toLowerCase();
+      if (kinds[tag]) return { el: n, kind: kinds[tag] };
       const p = n.parentNode;
       n = (p && p.nodeType === 11 && p.host) ? p.host : p;
     }
     return null;
   }
 
-  // La card è l'unica in tutte le colonne? (se ce ne sono altre accanto, allargarsi le coprirebbe)
-  // Le card nascoste (quelle condizionali, che Home Assistant lascia nella colonna con l'attributo "hidden") non contano.
-  _aloneInColumns(cols) {
-    const visible = (c) => Array.from(c.children).filter((ch) => !ch.hasAttribute('hidden'));
-    const filled = Array.from(cols.children).filter((c) => visible(c).length > 0);
-    return filled.length === 1 && visible(filled[0]).length === 1;
+  // Quante card visibili ci sono nella vista? (le sezioni hanno shadow DOM annidati: si scende in tutti) Ritorna anche gli
+  // shadow root visitati, per osservarli. Non si scende dentro una card (le card dentro uno stack non contano a parte).
+  _scanView(viewEl) {
+    const roots = []; let count = 0;
+    const walk = (node) => {
+      if (node.nodeType === 1 && node.tagName === 'HUI-CARD') {
+        if (node.getClientRects().length > 0) count++;        // una card nascosta (condizionale) non ha riquadro
+        return;
+      }
+      if (node.shadowRoot) { roots.push(node.shadowRoot); walk(node.shadowRoot); }
+      Array.from(node.children || []).forEach(walk);
+    };
+    walk(viewEl);
+    return { count, roots };
+  }
+
+  // Quante card ("hui-card") ci sono tra questa card e la vista? Una sola = sta direttamente nella vista; di più = è dentro uno stack.
+  _cardAncestors(viewEl) {
+    let n = this, c = 0;
+    for (let i = 0; n && n !== viewEl && i < 80; i++) {
+      if ((n.tagName || '') === 'HUI-CARD') c++;
+      const p = n.parentNode;
+      n = (p && p.nodeType === 11 && p.host) ? p.host : p;
+    }
+    return c;
   }
 
   // Dimensiona la card. Misura la larghezza che Home Assistant le dà (togliendo prima i ritocchi fatti qui), poi:
-  //  - masonry e card da sola: esce dalla sua colonna e si centra, fino a tutto lo spazio (o max_width);
-  //  - altrove (pannello, sezioni, masonry con altre card): se c'è max_width, lo rispetta e si centra.
+  //  - card da sola nella vista (masonry o sezioni): esce dalla sua colonna e si centra nella vista, fino a tutto lo spazio (o max_width);
+  //  - altrove (pannello, card insieme ad altre, dentro uno stack): se c'è max_width, lo rispetta e si centra.
   _applyLayout() {
     if (!this.isConnected) return;
     const cfg = this._config;
     const st = this.style;
     st.setProperty('--rss-col-min', cfg.column_min_width + 'px');
     ['width', 'max-width', 'margin-left', 'margin-right'].forEach((pr) => st.removeProperty(pr));
-    const natural = this.getBoundingClientRect().width;
-    if (!(natural > 0)) { this._syncColumns(); return; }
+    const r0 = this.getBoundingClientRect();
+    const natural = r0.width;
+    const info = { view: '-', viewW: 0, natural: Math.round(natural), target: Math.round(natural), cards: null, depth: null, alone: false };
+    this._layoutInfo = info;
+    if (!(natural > 0)) { this._syncColumns(); this._showLayoutInfo(); return; }
     const maxW = cfg.max_width;
-    const cols = cfg.full_width ? this._findMasonryColumns() : null;
-    if (cols && this._aloneInColumns(cols)) {
-      const avail = cols.getBoundingClientRect().width - 8;          // un piccolo margine ai lati
-      const target = Math.min(avail, maxW > 0 ? maxW : avail);
-      if (target > natural + 4) {
-        st.display = 'block'; st.width = target + 'px'; st.maxWidth = 'none';
-        st.marginLeft = (-(target - natural) / 2) + 'px';             // simmetrico: la colonna è centrata
-        this._syncColumns();
-        return;
+    const view = cfg.full_width ? this._findView() : null;
+    if (view) {
+      const vr = view.el.getBoundingClientRect();
+      info.view = view.kind; info.viewW = Math.round(vr.width);
+      const scan = this._scanView(view.el);
+      this._observeRoots(scan.roots);
+      info.cards = scan.count; info.depth = this._cardAncestors(view.el);
+      info.alone = info.cards === 1 && info.depth === 1;
+      if (info.alone) {
+        const target = Math.min(vr.width - 32, maxW > 0 ? maxW : Infinity);        // un po' di margine ai lati
+        if (target > natural + 4) {
+          st.display = 'block'; st.width = target + 'px'; st.maxWidth = 'none';
+          st.marginLeft = ((vr.left + (vr.width - target) / 2) - r0.left) + 'px';   // centrata nella vista
+          info.target = Math.round(target);
+          this._syncColumns(); this._showLayoutInfo();
+          return;
+        }
       }
     }
     if (maxW > 0 && natural > maxW) {
       st.display = 'block'; st.maxWidth = maxW + 'px'; st.marginLeft = 'auto'; st.marginRight = 'auto';
+      info.target = maxW;
     }
-    this._syncColumns();
+    this._syncColumns(); this._showLayoutInfo();
+  }
+
+  // Gli shadow DOM delle sezioni nascono dopo la vista: ogni volta che se ne trovano di nuovi si comincia a osservarli.
+  _observeRoots(roots) {
+    if (!this._layoutMO || !this._moRoots) return;
+    roots.forEach((r) => { if (!this._moRoots.has(r)) { this._moRoots.add(r); this._layoutMO.observe(r, this._moOpts); } });
+  }
+
+  // Cosa ha rilevato: lo si legge passando il mouse sul numero di versione (serve a capire perché la card non si allarga).
+  _showLayoutInfo() {
+    const v = this.querySelector('.rss-version');
+    const i = this._layoutInfo;
+    if (!v || !i) return;
+    v.title = `layout: vista=${i.view} · spazio=${i.viewW}px · card ${i.natural}px→${i.target}px · card nella vista=${i.cards === null ? '?' : i.cards} · livelli=${i.depth === null ? '?' : i.depth} · ${i.alone ? 'da sola' : 'non da sola'}`;
   }
 
   // Più colonne di notizie? Lo si legge da ciò che il browser ha davvero calcolato (dipende dalla larghezza e da column_min_width).
@@ -1867,21 +1914,24 @@ class RssNewsCard extends HTMLElement {
     if (this._layoutRO) { this._layoutRO.disconnect(); this._layoutRO = null; }
     if (this._layoutMO) { this._layoutMO.disconnect(); this._layoutMO = null; }
     if (this._listRO) { this._listRO.disconnect(); this._listRO = null; }
-    const cols = this._findMasonryColumns();
-    if (cols) {
+    const view = this._findView();
+    if (view) {
       if (typeof ResizeObserver === 'function') {
         this._lastColsW = -1;
         this._layoutRO = new ResizeObserver(() => {
-          const w = Math.round(cols.getBoundingClientRect().width);
+          const w = Math.round(view.el.getBoundingClientRect().width);
           if (w !== this._lastColsW) { this._lastColsW = w; this._boundLayout(); }     // solo se cambia la larghezza (l'altezza la cambiamo noi)
         });
-        this._layoutRO.observe(cols);
+        this._layoutRO.observe(view.el);
       }
       if (typeof MutationObserver === 'function') {
-        // Card aggiunte o tolte, o una card condizionale che compare/sparisce (attributo "hidden"). Si guarda solo l'albero normale
-        // (colonne e card), non l'interno delle card: costa pochissimo.
-        this._layoutMO = new MutationObserver(() => this._boundLayout());
-        this._layoutMO.observe(cols, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden'] });
+        // Card aggiunte o tolte o rese visibili/nascoste (card condizionali), anche dentro le sezioni: si guardano gli shadow DOM
+        // della vista (colonne, sezioni), non l'interno delle card. Costa pochissimo.
+        // Le modifiche dentro la card stessa (notizie che si aggiornano, menu che si aprono) non contano: si ignorano.
+        this._layoutMO = new MutationObserver((recs) => { if (recs.some((r) => !this.contains(r.target))) this._boundLayout(); });
+        this._moOpts = { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden', 'class'] };
+        this._moRoots = new WeakSet();
+        this._observeRoots(this._scanView(view.el).roots);
       }
     }
     // La lista stessa: la sua larghezza cambia anche fuori dalla vista masonry (pannello, sezioni, rotazione dello schermo)
