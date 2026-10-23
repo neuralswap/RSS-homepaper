@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.29.1 · build 2026-10-23-02';
+const CARD_VERSION = 'v1.29.2 · build 2026-10-23-03';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -93,6 +93,7 @@ const RSS_LOCALES = {
       full_width:        'Use all the available width (when this is the only card on the page)',
       max_width:         'Maximum card width in px (0 = no limit)',
       col_min_width:     'Minimum width of a news column in px (more space = more columns)',
+      layout_debug:      'Show layout diagnostics (what the card detected about its width)',
       layout_hint:       'In Home Assistant\'s Masonry view a card sits in a 500 px column: if it is the only card on the page it comes out of the column and uses the space. In Panel or Sections views it already uses the whole width.',
       title_size:        'Article title font size (px)',
       desc_size:         'Description font size (px)',
@@ -218,6 +219,7 @@ const RSS_LOCALES = {
       full_width:          'A teljes elérhető szélesség használata (ha ez az egyetlen kártya az oldalon)',
       max_width:           'A kártya legnagyobb szélessége px-ben (0 = nincs korlát)',
       col_min_width:       'Egy hírek oszlop minimális szélessége px-ben (több hely = több oszlop)',
+      layout_debug:        'Elrendezési diagnosztika megjelenítése (mit észlelt a kártya a szélességéről)',
       layout_hint:         'A Home Assistant Masonry nézetében a kártya egy 500 px-es oszlopban áll: ha az oldal egyetlen kártyája, kilép az oszlopból és kihasználja a helyet. Panel vagy Szekciók nézetben már a teljes szélességet használja.',
       title_size:          'Cím betűmérete (px)',
       desc_size:           'Leírás betűmérete (px)',
@@ -343,6 +345,7 @@ const RSS_LOCALES = {
       full_width:          'Gesamte verfügbare Breite nutzen (wenn dies die einzige Karte auf der Seite ist)',
       max_width:           'Maximale Kartenbreite in px (0 = keine Begrenzung)',
       col_min_width:       'Mindestbreite einer Nachrichtenspalte in px (mehr Platz = mehr Spalten)',
+      layout_debug:        'Layout-Diagnose anzeigen (was die Karte über ihre Breite erkannt hat)',
       layout_hint:         'In der Masonry-Ansicht von Home Assistant steht eine Karte in einer 500-px-Spalte: Ist sie die einzige Karte der Seite, verlässt sie die Spalte und nutzt den Platz. In der Panel- oder Bereichsansicht nutzt sie schon die ganze Breite.',
       title_size:          'Schriftgröße Artikeltitel (px)',
       desc_size:           'Schriftgröße Beschreibung (px)',
@@ -468,6 +471,7 @@ const RSS_LOCALES = {
       full_width:           'Usa tutta la larghezza disponibile (se è l\'unica card della pagina)',
       max_width:            'Larghezza massima della card in px (0 = nessun limite)',
       col_min_width:        'Larghezza minima di una colonna di notizie in px (più spazio = più colonne)',
+      layout_debug:         'Mostra la diagnostica del layout (cosa ha rilevato la card sulla sua larghezza)',
       layout_hint:          'Nella vista Masonry di Home Assistant la card sta in una colonna di 500 px: se è l\'unica della pagina esce dalla colonna e usa lo spazio. Nelle viste Pannello o Sezioni usa già tutta la larghezza.',
       title_size:           'Dimensione carattere titolo (px)',
       desc_size:            'Dimensione carattere descrizione (px)',
@@ -631,6 +635,7 @@ class RssNewsCard extends HTMLElement {
       full_width: true,
       max_width: 0,
       column_min_width: 380,
+      layout_debug: false,
       title_font_size: 15,
       desc_font_size: 14,
       card_title_color: '',
@@ -670,6 +675,8 @@ class RssNewsCard extends HTMLElement {
       full_width:       config.full_width !== false,
       max_width:        Math.min(4000, Math.max(0, Number(config.max_width) || 0)),
       column_min_width: Math.min(900, Math.max(240, Number(config.column_min_width) || 380)),
+      // Scrive nella card cosa ha rilevato sulla larghezza (vista, spazio, quante card): serve a capire perché non si allarga.
+      layout_debug:     config.layout_debug === true,
       title_font_size:  config.title_font_size || 15,
       desc_font_size:   config.desc_font_size || 14,
       card_title_color: config.card_title_color || '',
@@ -1798,15 +1805,24 @@ class RssNewsCard extends HTMLElement {
 
   // ── Larghezza della card ─────────────────────────────────────────────────────
   // La vista di Home Assistant che contiene la card: masonry, sezioni, pannello... Si risale l'albero attraversando gli
-  // shadow DOM. Ritorna { el, kind } oppure null (card fuori da una vista, es. in un'anteprima).
-  _findView() {
+  // shadow DOM. Se i nomi delle viste non sono quelli noti (Home Assistant può cambiarli), si prende il primo antenato
+  // molto più largo della card ("auto"). Ritorna { el, kind } oppure null (card fuori da una vista, es. in un'anteprima).
+  _findView(natural) {
     const kinds = { 'hui-masonry-view': 'masonry', 'hui-sections-view': 'sezioni', 'hui-panel-view': 'pannello', 'hui-sidebar-view': 'sidebar' };
+    const up = (n) => { const p = n.parentNode; return (p && p.nodeType === 11 && p.host) ? p.host : p; };
     let n = this;
     for (let i = 0; n && i < 80; i++) {
       const tag = (n.tagName || '').toLowerCase();
       if (kinds[tag]) return { el: n, kind: kinds[tag] };
-      const p = n.parentNode;
-      n = (p && p.nodeType === 11 && p.host) ? p.host : p;
+      n = up(n);
+    }
+    if (natural > 0) {
+      n = up(this);
+      for (let i = 0; n && i < 80; i++) {
+        const tag = (n.tagName || '').toLowerCase();
+        if (n.nodeType === 1 && tag !== 'body' && tag !== 'html' && n.getBoundingClientRect().width >= natural + 200) return { el: n, kind: 'auto' };
+        n = up(n);
+      }
     }
     return null;
   }
@@ -1843,6 +1859,12 @@ class RssNewsCard extends HTMLElement {
   //  - altrove (pannello, card insieme ad altre, dentro uno stack): se c'è max_width, lo rispetta e si centra.
   _applyLayout() {
     if (!this.isConnected) return;
+    this._layoutCalls = (this._layoutCalls || 0) + 1;
+    try { this._applyLayoutInner(); }
+    catch (e) { this._layoutInfo = { error: String(e && e.message || e) }; this._showLayoutInfo(); }
+  }
+
+  _applyLayoutInner() {
     const cfg = this._config;
     const st = this.style;
     st.setProperty('--rss-col-min', cfg.column_min_width + 'px');
@@ -1851,9 +1873,10 @@ class RssNewsCard extends HTMLElement {
     const natural = r0.width;
     const info = { view: '-', viewW: 0, natural: Math.round(natural), target: Math.round(natural), cards: null, depth: null, alone: false };
     this._layoutInfo = info;
-    if (!(natural > 0)) { this._syncColumns(); this._showLayoutInfo(); return; }
     const maxW = cfg.max_width;
-    const view = cfg.full_width ? this._findView() : null;
+    const view = cfg.full_width ? this._findView(natural) : null;
+    this._ensureObservers(view);              // anche se la card non ha ancora larghezza: la vista, quando si dispone, riavvia il calcolo
+    if (!(natural > 0)) { this._syncColumns(); this._showLayoutInfo(); return; }     // non ancora disposta: osservatori e nuovi tentativi la riprendono
     if (view) {
       const vr = view.el.getBoundingClientRect();
       info.view = view.kind; info.viewW = Math.round(vr.width);
@@ -1879,18 +1902,55 @@ class RssNewsCard extends HTMLElement {
     this._syncColumns(); this._showLayoutInfo();
   }
 
+  // Osservatori sulla vista trovata (cambia lo spazio, card aggiunte/tolte/nascoste). Si rifanno se la vista trovata cambia.
+  _ensureObservers(view) {
+    const el = view ? view.el : null;
+    if (el === this._obsEl) return;
+    if (this._layoutRO) { this._layoutRO.disconnect(); this._layoutRO = null; }
+    if (this._layoutMO) { this._layoutMO.disconnect(); this._layoutMO = null; }
+    this._obsEl = el;
+    if (!el) return;
+    if (typeof ResizeObserver === 'function') {
+      this._lastColsW = -1;
+      this._layoutRO = new ResizeObserver(() => {
+        const w = Math.round(el.getBoundingClientRect().width);
+        if (w !== this._lastColsW) { this._lastColsW = w; this._boundLayout(); }     // solo se cambia la larghezza (l'altezza la cambiamo noi)
+      });
+      this._layoutRO.observe(el);
+    }
+    if (typeof MutationObserver === 'function') {
+      // Le modifiche dentro la card stessa (notizie che si aggiornano, menu che si aprono) non contano: si ignorano.
+      this._layoutMO = new MutationObserver((recs) => { if (recs.some((r) => !this.contains(r.target))) this._boundLayout(); });
+      this._moOpts = { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden', 'class'] };
+      this._moRoots = new WeakSet();
+      this._observeRoots(this._scanView(el).roots);
+    }
+  }
+
   // Gli shadow DOM delle sezioni nascono dopo la vista: ogni volta che se ne trovano di nuovi si comincia a osservarli.
   _observeRoots(roots) {
     if (!this._layoutMO || !this._moRoots) return;
     roots.forEach((r) => { if (!this._moRoots.has(r)) { this._moRoots.add(r); this._layoutMO.observe(r, this._moOpts); } });
   }
 
-  // Cosa ha rilevato: lo si legge passando il mouse sul numero di versione (serve a capire perché la card non si allarga).
+  // Cosa ha rilevato: lo si legge passando il mouse sul numero di versione, o sempre in chiaro con "layout_debug".
   _showLayoutInfo() {
-    const v = this.querySelector('.rss-version');
     const i = this._layoutInfo;
-    if (!v || !i) return;
-    v.title = `layout: vista=${i.view} · spazio=${i.viewW}px · card ${i.natural}px→${i.target}px · card nella vista=${i.cards === null ? '?' : i.cards} · livelli=${i.depth === null ? '?' : i.depth} · ${i.alone ? 'da sola' : 'non da sola'}`;
+    if (!i) return;
+    const txt = i.error ? `layout: ERRORE ${i.error}`
+      : `layout: vista=${i.view} · spazio=${i.viewW}px · card ${i.natural}px→${i.target}px · card nella vista=${i.cards === null ? '?' : i.cards} · livelli=${i.depth === null ? '?' : i.depth} · ${i.alone ? 'da sola' : 'non da sola'} · calcoli=${this._layoutCalls || 0}`;
+    const v = this.querySelector('.rss-version');
+    if (v) v.title = txt;
+    let d = this.querySelector('.rss-layout-debug');
+    if (this._config.layout_debug) {
+      if (!d) {
+        d = document.createElement('div'); d.className = 'rss-layout-debug';
+        d.style.cssText = 'font:11px monospace;opacity:0.8;padding:2px 0 6px;word-break:break-all;color:var(--secondary-text-color);';
+        const hdr = this.querySelector('.rss-header');
+        if (hdr && hdr.parentNode) hdr.parentNode.insertBefore(d, hdr.nextSibling);
+      }
+      if (d) d.textContent = txt;
+    } else if (d) d.remove();
   }
 
   // Più colonne di notizie? Lo si legge da ciò che il browser ha davvero calcolato (dipende dalla larghezza e da column_min_width).
@@ -1901,7 +1961,8 @@ class RssNewsCard extends HTMLElement {
     g.classList.toggle('rss-multicol', n > 1);
   }
 
-  // Rifà il calcolo quando cambia lo spazio: finestra, barra laterale, altre card aggiunte o tolte.
+  // Rifà il calcolo quando cambia lo spazio: finestra, barra laterale, altre card aggiunte o tolte. Più tentativi ravvicinati:
+  // mentre Home Assistant monta la vista la larghezza definitiva può arrivare dopo il primo disegno.
   _watchLayout() {
     if (!this._boundLayout) {
       this._boundLayout = () => {
@@ -1911,30 +1972,9 @@ class RssNewsCard extends HTMLElement {
     }
     window.removeEventListener('resize', this._boundLayout);
     window.addEventListener('resize', this._boundLayout);
-    if (this._layoutRO) { this._layoutRO.disconnect(); this._layoutRO = null; }
-    if (this._layoutMO) { this._layoutMO.disconnect(); this._layoutMO = null; }
     if (this._listRO) { this._listRO.disconnect(); this._listRO = null; }
-    const view = this._findView();
-    if (view) {
-      if (typeof ResizeObserver === 'function') {
-        this._lastColsW = -1;
-        this._layoutRO = new ResizeObserver(() => {
-          const w = Math.round(view.el.getBoundingClientRect().width);
-          if (w !== this._lastColsW) { this._lastColsW = w; this._boundLayout(); }     // solo se cambia la larghezza (l'altezza la cambiamo noi)
-        });
-        this._layoutRO.observe(view.el);
-      }
-      if (typeof MutationObserver === 'function') {
-        // Card aggiunte o tolte o rese visibili/nascoste (card condizionali), anche dentro le sezioni: si guardano gli shadow DOM
-        // della vista (colonne, sezioni), non l'interno delle card. Costa pochissimo.
-        // Le modifiche dentro la card stessa (notizie che si aggiornano, menu che si aprono) non contano: si ignorano.
-        this._layoutMO = new MutationObserver((recs) => { if (recs.some((r) => !this.contains(r.target))) this._boundLayout(); });
-        this._moOpts = { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden', 'class'] };
-        this._moRoots = new WeakSet();
-        this._observeRoots(this._scanView(view.el).roots);
-      }
-    }
-    // La lista stessa: la sua larghezza cambia anche fuori dalla vista masonry (pannello, sezioni, rotazione dello schermo)
+    if (this._hostRO) { this._hostRO.disconnect(); this._hostRO = null; }
+    // La lista: la sua larghezza cambia anche fuori dalla vista masonry (pannello, sezioni, rotazione dello schermo)
     const list = this.querySelector('.rss-articles');
     if (list && typeof ResizeObserver === 'function') {
       this._lastListW = -1;
@@ -1944,6 +1984,19 @@ class RssNewsCard extends HTMLElement {
       });
       this._listRO.observe(list);
     }
+    // La card stessa: se non aveva ancora una larghezza (vista non ancora disposta) il calcolo riparte appena la ottiene.
+    // Si osserva il contenitore interno (un blocco): i browser non segnalano le dimensioni di un elemento "in linea" come la card.
+    const inner = this.querySelector('.rss-inner');
+    if (inner && typeof ResizeObserver === 'function') {
+      this._lastHostW = -1;
+      this._hostRO = new ResizeObserver(() => {
+        const w = Math.round(inner.getBoundingClientRect().width);
+        if (w !== this._lastHostW) { this._lastHostW = w; this._boundLayout(); }
+      });
+      this._hostRO.observe(inner);
+    }
+    (this._layoutTimers || []).forEach((t) => clearTimeout(t));
+    this._layoutTimers = [250, 1000, 3000].map((ms) => setTimeout(() => this._boundLayout(), ms));
     this._boundLayout();
   }
 
@@ -1957,6 +2010,9 @@ class RssNewsCard extends HTMLElement {
     if (this._layoutRO) { this._layoutRO.disconnect(); this._layoutRO = null; }
     if (this._layoutMO) { this._layoutMO.disconnect(); this._layoutMO = null; }
     if (this._listRO) { this._listRO.disconnect(); this._listRO = null; }
+    if (this._hostRO) { this._hostRO.disconnect(); this._hostRO = null; }
+    (this._layoutTimers || []).forEach((t) => clearTimeout(t)); this._layoutTimers = [];
+    this._obsEl = null;
     if (this._layoutRaf) { cancelAnimationFrame(this._layoutRaf); this._layoutRaf = 0; }
     if (this._boundCloseFilterMenu) document.removeEventListener('click', this._boundCloseFilterMenu);
     if (this._boundAutoHeight) window.removeEventListener('resize', this._boundAutoHeight);
@@ -2593,6 +2649,13 @@ class RssNewsCardEditor extends HTMLElement {
         <label>${t.ed.col_min_width}</label>
         <input type="number" id="ed-col-min" min="240" max="900" step="10" value="${c.column_min_width || 380}"/>
         <div style="font-size:11px;opacity:0.7;margin:4px 0 8px;">${t.ed.layout_hint}</div>
+        <div class="rss-toggle-row">
+          <label for="tog-layout-debug">${t.ed.layout_debug}</label>
+          <label class="rss-toggle">
+            <input type="checkbox" id="tog-layout-debug" ${c.layout_debug === true ? 'checked' : ''}/>
+            <span class="rss-slider"></span>
+          </label>
+        </div>
 
         <div class="rss-toggle-row">
           <label for="tog-auto-height">${t.ed.auto_height}</label>
@@ -2792,6 +2855,7 @@ class RssNewsCardEditor extends HTMLElement {
     bindChk('#tog-summary-loc', 'summary_location');
     bindChk('#tog-summary-stats', 'summary_stats');
     bindChk('#tog-full-width', 'full_width');
+    bindChk('#tog-layout-debug', 'layout_debug');
 
     bind('#ed-entity', 'entity');
 
@@ -3431,6 +3495,7 @@ class RssNewsCardEditor extends HTMLElement {
     setChk('#tog-summary-loc', c.summary_location !== false);
     setChk('#tog-summary-stats', c.summary_stats !== false);
     setChk('#tog-full-width', c.full_width !== false);
+    setChk('#tog-layout-debug', c.layout_debug === true);
     setChk('#tog-auto-height', c.auto_height === true);
     const heightInput = this.querySelector('#ed-height');
     if (heightInput) heightInput.disabled = c.auto_height === true;
