@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.29.2 · build 2026-10-23-03';
+const CARD_VERSION = 'v1.29.3 · build 2026-10-23-04';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -1830,17 +1830,28 @@ class RssNewsCard extends HTMLElement {
   // Quante card visibili ci sono nella vista? (le sezioni hanno shadow DOM annidati: si scende in tutti) Ritorna anche gli
   // shadow root visitati, per osservarli. Non si scende dentro una card (le card dentro uno stack non contano a parte).
   _scanView(viewEl) {
-    const roots = []; let count = 0;
+    const roots = []; const cards = []; let count = 0;
     const walk = (node) => {
       if (node.nodeType === 1 && node.tagName === 'HUI-CARD') {
-        if (node.getClientRects().length > 0) count++;        // una card nascosta (condizionale) non ha riquadro
+        if (node.getClientRects().length > 0) { count++; cards.push(node); }        // una card nascosta (condizionale) non ha riquadro
         return;
       }
       if (node.shadowRoot) { roots.push(node.shadowRoot); walk(node.shadowRoot); }
       Array.from(node.children || []).forEach(walk);
     };
     walk(viewEl);
-    return { count, roots };
+    return { count, roots, cards };
+  }
+
+  // La prima "hui-card" sopra questa card (quella che la avvolge nella vista).
+  _cardWrapper() {
+    let n = this;
+    for (let i = 0; n && i < 80; i++) {
+      if ((n.tagName || '') === 'HUI-CARD') return n;
+      const p = n.parentNode;
+      n = (p && p.nodeType === 11 && p.host) ? p.host : p;
+    }
+    return null;
   }
 
   // Quante card ("hui-card") ci sono tra questa card e la vista? Una sola = sta direttamente nella vista; di più = è dentro uno stack.
@@ -1883,12 +1894,22 @@ class RssNewsCard extends HTMLElement {
       const scan = this._scanView(view.el);
       this._observeRoots(scan.roots);
       info.cards = scan.count; info.depth = this._cardAncestors(view.el);
-      info.alone = info.cards === 1 && info.depth === 1;
+      // Ci si allarga solo se lo spazio che si occuperebbe è libero: le card impilate SOTTO o SOPRA (nella stessa colonna o sezione)
+      // non vengono coperte; quelle ACCANTO (altre colonne o sezioni alla stessa altezza) sì, e allora ci si ferma.
+      const target = Math.min(vr.width - 32, maxW > 0 ? maxW : Infinity);        // un po' di margine ai lati
+      const tl = vr.left + (vr.width - target) / 2, tr = tl + target;
+      const mine = this._cardWrapper();
+      const blockers = scan.cards.filter((c) => {
+        if (c === mine || c.contains(this) || (mine && mine.contains(c))) return false;
+        const b = c.getBoundingClientRect();
+        return b.width > 0 && b.height > 0 && b.left < tr && b.right > tl && b.top < r0.bottom && b.bottom > r0.top;
+      });
+      info.blockers = blockers.length;
+      info.alone = info.depth === 1 && blockers.length === 0;        // "alone" = spazio libero
       if (info.alone) {
-        const target = Math.min(vr.width - 32, maxW > 0 ? maxW : Infinity);        // un po' di margine ai lati
         if (target > natural + 4) {
           st.display = 'block'; st.width = target + 'px'; st.maxWidth = 'none';
-          st.marginLeft = ((vr.left + (vr.width - target) / 2) - r0.left) + 'px';   // centrata nella vista
+          st.marginLeft = (tl - r0.left) + 'px';                                  // centrata nella vista
           info.target = Math.round(target);
           this._syncColumns(); this._showLayoutInfo();
           return;
@@ -1938,7 +1959,7 @@ class RssNewsCard extends HTMLElement {
     const i = this._layoutInfo;
     if (!i) return;
     const txt = i.error ? `layout: ERRORE ${i.error}`
-      : `layout: vista=${i.view} · spazio=${i.viewW}px · card ${i.natural}px→${i.target}px · card nella vista=${i.cards === null ? '?' : i.cards} · livelli=${i.depth === null ? '?' : i.depth} · ${i.alone ? 'da sola' : 'non da sola'} · calcoli=${this._layoutCalls || 0}`;
+      : `layout: vista=${i.view} · spazio=${i.viewW}px · card ${i.natural}px→${i.target}px · card nella vista=${i.cards === null ? '?' : i.cards} · accanto=${i.blockers === undefined ? '?' : i.blockers} · livelli=${i.depth === null ? '?' : i.depth} · ${i.alone ? 'spazio libero' : 'spazio occupato'} · calcoli=${this._layoutCalls || 0}`;
     const v = this.querySelector('.rss-version');
     if (v) v.title = txt;
     let d = this.querySelector('.rss-layout-debug');
