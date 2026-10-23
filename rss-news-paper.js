@@ -7,7 +7,7 @@
 // Bump this on every change you send me / every time you copy a new file to
 // the server. Shown at the top of the card so you can verify at a glance
 // which build is actually loaded, without opening dev tools.
-const CARD_VERSION = 'v1.28.0 · build 2026-10-21-08';
+const CARD_VERSION = 'v1.29.0 · build 2026-10-23-01';
 
 // ─── Defaults per il tuo setup (RSS server) ────────────────────────────────
 // Se l'utente non imposta questi valori nella card, vengono usati questi.
@@ -90,6 +90,10 @@ const RSS_LOCALES = {
       summary_popup:     'Summary popup on click',
       summary_location:  'Show the place in the summary title',
       summary_stats:     'Loading statistics in the summary',
+      full_width:        'Use all the available width (when this is the only card on the page)',
+      max_width:         'Maximum card width in px (0 = no limit)',
+      col_min_width:     'Minimum width of a news column in px (more space = more columns)',
+      layout_hint:       'In Home Assistant\'s Masonry view a card sits in a 500 px column: if it is the only card on the page it comes out of the column and uses the space. In Panel or Sections views it already uses the whole width.',
       title_size:        'Article title font size (px)',
       desc_size:         'Description font size (px)',
       color_hint:        'Leave empty for theme default',
@@ -211,6 +215,10 @@ const RSS_LOCALES = {
       summary_popup:       'Összefoglaló ablak kattintáskor',
       summary_location:    'Hely megjelenítése az összefoglaló címében',
       summary_stats:       'Betöltési statisztika az összefoglalóban',
+      full_width:          'A teljes elérhető szélesség használata (ha ez az egyetlen kártya az oldalon)',
+      max_width:           'A kártya legnagyobb szélessége px-ben (0 = nincs korlát)',
+      col_min_width:       'Egy hírek oszlop minimális szélessége px-ben (több hely = több oszlop)',
+      layout_hint:         'A Home Assistant Masonry nézetében a kártya egy 500 px-es oszlopban áll: ha az oldal egyetlen kártyája, kilép az oszlopból és kihasználja a helyet. Panel vagy Szekciók nézetben már a teljes szélességet használja.',
       title_size:          'Cím betűmérete (px)',
       desc_size:           'Leírás betűmérete (px)',
       color_hint:          'Üresen hagyva a téma alapszínét használja',
@@ -332,6 +340,10 @@ const RSS_LOCALES = {
       summary_popup:       'Zusammenfassung beim Klick',
       summary_location:    'Ort im Titel der Zusammenfassung anzeigen',
       summary_stats:       'Ladestatistik in der Zusammenfassung',
+      full_width:          'Gesamte verfügbare Breite nutzen (wenn dies die einzige Karte auf der Seite ist)',
+      max_width:           'Maximale Kartenbreite in px (0 = keine Begrenzung)',
+      col_min_width:       'Mindestbreite einer Nachrichtenspalte in px (mehr Platz = mehr Spalten)',
+      layout_hint:         'In der Masonry-Ansicht von Home Assistant steht eine Karte in einer 500-px-Spalte: Ist sie die einzige Karte der Seite, verlässt sie die Spalte und nutzt den Platz. In der Panel- oder Bereichsansicht nutzt sie schon die ganze Breite.',
       title_size:          'Schriftgröße Artikeltitel (px)',
       desc_size:           'Schriftgröße Beschreibung (px)',
       color_hint:          'Leer lassen für Themenstandardfarbe',
@@ -453,6 +465,10 @@ const RSS_LOCALES = {
       summary_popup:        'Popup riassunto al click',
       summary_location:     'Mostra il luogo nel titolo del riassunto',
       summary_stats:        'Statistiche del caricamento nel riassunto',
+      full_width:           'Usa tutta la larghezza disponibile (se è l\'unica card della pagina)',
+      max_width:            'Larghezza massima della card in px (0 = nessun limite)',
+      col_min_width:        'Larghezza minima di una colonna di notizie in px (più spazio = più colonne)',
+      layout_hint:          'Nella vista Masonry di Home Assistant la card sta in una colonna di 500 px: se è l\'unica della pagina esce dalla colonna e usa lo spazio. Nelle viste Pannello o Sezioni usa già tutta la larghezza.',
       title_size:           'Dimensione carattere titolo (px)',
       desc_size:            'Dimensione carattere descrizione (px)',
       color_hint:           'Lascia vuoto per il colore predefinito del tema',
@@ -612,6 +628,9 @@ class RssNewsCard extends HTMLElement {
       summary_popup: true,
       summary_location: true,
       summary_stats: true,
+      full_width: true,
+      max_width: 0,
+      column_min_width: 380,
       title_font_size: 15,
       desc_font_size: 14,
       card_title_color: '',
@@ -645,6 +664,12 @@ class RssNewsCard extends HTMLElement {
       summary_stats:    config.summary_stats !== false,
       // Ogni quanti ms chiedere l'avanzamento (solo per prove; normalmente 600)
       summary_poll_ms:  Number(config.summary_poll_ms) > 0 ? Number(config.summary_poll_ms) : 600,
+      // Larghezza. La vista "masonry" di Home Assistant mette ogni card in una colonna larga al massimo 500 px: con full_width
+      // (default) una card che è l'unica della pagina esce dalla colonna e usa tutto lo spazio. max_width = tetto in px (0 = nessuno).
+      // column_min_width = larghezza minima di una colonna di notizie: con più spazio le notizie si dispongono su più colonne.
+      full_width:       config.full_width !== false,
+      max_width:        Math.min(4000, Math.max(0, Number(config.max_width) || 0)),
+      column_min_width: Math.min(900, Math.max(240, Number(config.column_min_width) || 380)),
       title_font_size:  config.title_font_size || 15,
       desc_font_size:   config.desc_font_size || 14,
       card_title_color: config.card_title_color || '',
@@ -955,7 +980,7 @@ class RssNewsCard extends HTMLElement {
   _buildArticlesHtml(articles) {
     const { show_source, show_date, show_description, show_original, title_font_size, desc_font_size, article_title_color, desc_color } = this._config;
     const t = this._t();
-    if (articles.length === 0) return `<div style="padding:20px;color:var(--secondary-text-color);text-align:center;">${t.no_articles}</div>`;
+    if (articles.length === 0) return `<div style="grid-column:1/-1;padding:20px;color:var(--secondary-text-color);text-align:center;">${t.no_articles}</div>`;
     return articles.map(a => {
       const topic = this._topicLabel(a);
       const provider = this._providerLabel(a);
@@ -1618,6 +1643,11 @@ class RssNewsCard extends HTMLElement {
           .rss-source-stat-badge--warn{color:var(--error-color,#f44336);opacity:0.9;font-weight:700;}
           .rss-source-ghost{border-top:1px solid var(--divider-color);}
           .rss-filters-row{display:flex;align-items:center;gap:6px;width:100%;}
+          .rss-articles{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,var(--rss-col-min,380px)),1fr));column-gap:24px;}
+          /* Nelle file della griglia le notizie si allungano alla più alta: lo spazio in più va in fondo, non in mezzo alla notizia */
+          .rss-articles .rss-article-row>div{flex:0 0 auto!important;}
+          /* Con più colonne le immagini sono tutte 16:9 (ritagliate): le file restano in ordine anche con immagini di forme diverse */
+          .rss-articles.rss-multicol .rss-article-row img{aspect-ratio:16/9;object-fit:cover;}
           .rss-scroll{overflow-y:scroll;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:thin;scrollbar-color:var(--divider-color) transparent;}
           .rss-article-row,.rss-article-row *{-webkit-user-select:none!important;-moz-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important;}
         </style>
@@ -1763,10 +1793,121 @@ class RssNewsCard extends HTMLElement {
     if (this._config.auto_height) {
       setTimeout(() => this._applyAutoHeight(), 300);
     }
+    this._watchLayout();
+  }
+
+  // ── Larghezza della card ─────────────────────────────────────────────────────
+  // Il contenitore "#columns" della vista masonry di Home Assistant (null se la card sta in un'altra vista:
+  // pannello, sezioni...). Si risale l'albero attraversando gli shadow DOM.
+  _findMasonryColumns() {
+    let n = this;
+    for (let i = 0; n && i < 40; i++) {
+      if (n.id === 'columns') return n;
+      const p = n.parentNode;
+      n = (p && p.nodeType === 11 && p.host) ? p.host : p;
+    }
+    return null;
+  }
+
+  // La card è l'unica in tutte le colonne? (se ce ne sono altre accanto, allargarsi le coprirebbe)
+  // Le card nascoste (quelle condizionali, che Home Assistant lascia nella colonna con l'attributo "hidden") non contano.
+  _aloneInColumns(cols) {
+    const visible = (c) => Array.from(c.children).filter((ch) => !ch.hasAttribute('hidden'));
+    const filled = Array.from(cols.children).filter((c) => visible(c).length > 0);
+    return filled.length === 1 && visible(filled[0]).length === 1;
+  }
+
+  // Dimensiona la card. Misura la larghezza che Home Assistant le dà (togliendo prima i ritocchi fatti qui), poi:
+  //  - masonry e card da sola: esce dalla sua colonna e si centra, fino a tutto lo spazio (o max_width);
+  //  - altrove (pannello, sezioni, masonry con altre card): se c'è max_width, lo rispetta e si centra.
+  _applyLayout() {
+    if (!this.isConnected) return;
+    const cfg = this._config;
+    const st = this.style;
+    st.setProperty('--rss-col-min', cfg.column_min_width + 'px');
+    ['width', 'max-width', 'margin-left', 'margin-right'].forEach((pr) => st.removeProperty(pr));
+    const natural = this.getBoundingClientRect().width;
+    if (!(natural > 0)) { this._syncColumns(); return; }
+    const maxW = cfg.max_width;
+    const cols = cfg.full_width ? this._findMasonryColumns() : null;
+    if (cols && this._aloneInColumns(cols)) {
+      const avail = cols.getBoundingClientRect().width - 8;          // un piccolo margine ai lati
+      const target = Math.min(avail, maxW > 0 ? maxW : avail);
+      if (target > natural + 4) {
+        st.display = 'block'; st.width = target + 'px'; st.maxWidth = 'none';
+        st.marginLeft = (-(target - natural) / 2) + 'px';             // simmetrico: la colonna è centrata
+        this._syncColumns();
+        return;
+      }
+    }
+    if (maxW > 0 && natural > maxW) {
+      st.display = 'block'; st.maxWidth = maxW + 'px'; st.marginLeft = 'auto'; st.marginRight = 'auto';
+    }
+    this._syncColumns();
+  }
+
+  // Più colonne di notizie? Lo si legge da ciò che il browser ha davvero calcolato (dipende dalla larghezza e da column_min_width).
+  _syncColumns() {
+    const g = this.querySelector('.rss-articles');
+    if (!g) return;
+    const n = (getComputedStyle(g).gridTemplateColumns || '').split(' ').filter(Boolean).length;
+    g.classList.toggle('rss-multicol', n > 1);
+  }
+
+  // Rifà il calcolo quando cambia lo spazio: finestra, barra laterale, altre card aggiunte o tolte.
+  _watchLayout() {
+    if (!this._boundLayout) {
+      this._boundLayout = () => {
+        if (this._layoutRaf) cancelAnimationFrame(this._layoutRaf);
+        this._layoutRaf = requestAnimationFrame(() => { this._layoutRaf = 0; this._applyLayout(); });
+      };
+    }
+    window.removeEventListener('resize', this._boundLayout);
+    window.addEventListener('resize', this._boundLayout);
+    if (this._layoutRO) { this._layoutRO.disconnect(); this._layoutRO = null; }
+    if (this._layoutMO) { this._layoutMO.disconnect(); this._layoutMO = null; }
+    if (this._listRO) { this._listRO.disconnect(); this._listRO = null; }
+    const cols = this._findMasonryColumns();
+    if (cols) {
+      if (typeof ResizeObserver === 'function') {
+        this._lastColsW = -1;
+        this._layoutRO = new ResizeObserver(() => {
+          const w = Math.round(cols.getBoundingClientRect().width);
+          if (w !== this._lastColsW) { this._lastColsW = w; this._boundLayout(); }     // solo se cambia la larghezza (l'altezza la cambiamo noi)
+        });
+        this._layoutRO.observe(cols);
+      }
+      if (typeof MutationObserver === 'function') {
+        // Card aggiunte o tolte, o una card condizionale che compare/sparisce (attributo "hidden"). Si guarda solo l'albero normale
+        // (colonne e card), non l'interno delle card: costa pochissimo.
+        this._layoutMO = new MutationObserver(() => this._boundLayout());
+        this._layoutMO.observe(cols, { childList: true, subtree: true, attributes: true, attributeFilter: ['hidden'] });
+      }
+    }
+    // La lista stessa: la sua larghezza cambia anche fuori dalla vista masonry (pannello, sezioni, rotazione dello schermo)
+    const list = this.querySelector('.rss-articles');
+    if (list && typeof ResizeObserver === 'function') {
+      this._lastListW = -1;
+      this._listRO = new ResizeObserver(() => {
+        const w = Math.round(list.getBoundingClientRect().width);
+        if (w !== this._lastListW) { this._lastListW = w; this._syncColumns(); }
+      });
+      this._listRO.observe(list);
+    }
+    this._boundLayout();
+  }
+
+  connectedCallback() {
+    if (this._initialized) this._watchLayout();      // HA può staccare e riattaccare la card: si riparte
   }
 
   disconnectedCallback() {
     this._closeSummaryPopup();
+    if (this._boundLayout) window.removeEventListener('resize', this._boundLayout);
+    if (this._layoutRO) { this._layoutRO.disconnect(); this._layoutRO = null; }
+    if (this._layoutMO) { this._layoutMO.disconnect(); this._layoutMO = null; }
+    if (this._listRO) { this._listRO.disconnect(); this._listRO = null; }
+    if (this._layoutRaf) { cancelAnimationFrame(this._layoutRaf); this._layoutRaf = 0; }
     if (this._boundCloseFilterMenu) document.removeEventListener('click', this._boundCloseFilterMenu);
     if (this._boundAutoHeight) window.removeEventListener('resize', this._boundAutoHeight);
   }
@@ -2226,6 +2367,10 @@ class RssNewsCard extends HTMLElement {
   }
 
   getCardSize() { return 5; }
+
+  // Vista "sezioni" di Home Assistant: la card occupa tutta la larghezza della sezione.
+  getGridOptions() { return { columns: 'full', min_columns: 6 }; }
+  getLayoutOptions() { return { grid_columns: 'full', grid_min_columns: 6 }; }
 }
 
 // ─── Editor ───────────────────────────────────────────────────────────────────
@@ -2387,6 +2532,19 @@ class RssNewsCardEditor extends HTMLElement {
         <input type="number" id="ed-height" min="100" max="2000" value="${c.card_height || 400}" ${c.auto_height ? 'disabled' : ''}/>
 
         <div class="rss-toggle-row">
+          <label for="tog-full-width">${t.ed.full_width}</label>
+          <label class="rss-toggle">
+            <input type="checkbox" id="tog-full-width" ${c.full_width !== false ? 'checked' : ''}/>
+            <span class="rss-slider"></span>
+          </label>
+        </div>
+        <label>${t.ed.max_width}</label>
+        <input type="number" id="ed-max-width" min="0" max="4000" step="50" value="${c.max_width || 0}"/>
+        <label>${t.ed.col_min_width}</label>
+        <input type="number" id="ed-col-min" min="240" max="900" step="10" value="${c.column_min_width || 380}"/>
+        <div style="font-size:11px;opacity:0.7;margin:4px 0 8px;">${t.ed.layout_hint}</div>
+
+        <div class="rss-toggle-row">
           <label for="tog-auto-height">${t.ed.auto_height}</label>
           <label class="rss-toggle">
             <input type="checkbox" id="tog-auto-height" ${c.auto_height ? 'checked' : ''}/>
@@ -2533,6 +2691,8 @@ class RssNewsCardEditor extends HTMLElement {
 
     bind('#ed-title',    'title');
     bind('#ed-height',   'card_height',     v => parseInt(v) || 400);
+    bind('#ed-max-width', 'max_width',       v => Math.max(0, parseInt(v) || 0));
+    bind('#ed-col-min',   'column_min_width', v => Math.min(900, Math.max(240, parseInt(v) || 380)));
     const autoHeightChk = this.querySelector('#tog-auto-height');
     const heightInput = this.querySelector('#ed-height');
     if (autoHeightChk) {
@@ -2581,6 +2741,7 @@ class RssNewsCardEditor extends HTMLElement {
     bindChk('#tog-summary', 'summary_popup');
     bindChk('#tog-summary-loc', 'summary_location');
     bindChk('#tog-summary-stats', 'summary_stats');
+    bindChk('#tog-full-width', 'full_width');
 
     bind('#ed-entity', 'entity');
 
@@ -3202,6 +3363,8 @@ class RssNewsCardEditor extends HTMLElement {
     set('#ed-title',     c.title);
     set('#ed-entity',    c.entity);
     set('#ed-height',    c.card_height);
+    set('#ed-max-width', c.max_width || 0);
+    set('#ed-col-min',   c.column_min_width || 380);
     set('#ed-titlesize', c.title_font_size);
     set('#ed-descsize',  c.desc_font_size);
     set('#ed-card-title-color-text',    c.card_title_color);
@@ -3217,6 +3380,7 @@ class RssNewsCardEditor extends HTMLElement {
     setChk('#tog-summary', c.summary_popup !== false);
     setChk('#tog-summary-loc', c.summary_location !== false);
     setChk('#tog-summary-stats', c.summary_stats !== false);
+    setChk('#tog-full-width', c.full_width !== false);
     setChk('#tog-auto-height', c.auto_height === true);
     const heightInput = this.querySelector('#ed-height');
     if (heightInput) heightInput.disabled = c.auto_height === true;
